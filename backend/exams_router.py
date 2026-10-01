@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session, selectinload
 from auth import verify_proctor_token
 from database import (
     Exam,
+    ExamStart,
     ExamSubmission,
     Question,
     SubmissionAnswer,
@@ -73,6 +74,11 @@ class PublishRequest(BaseModel):
 class AnswerItem(BaseModel):
     question_id: int
     selected_option: Optional[str] = Field(default=None, description="'A'/'B'/'C'/'D', hoặc null nếu bỏ trống")
+
+
+class StartRequest(BaseModel):
+    """Body cho POST /api/exams/code/{exam_code}/start — sinh viên bấm "Bắt đầu làm bài"."""
+    student_id: str = Field(..., min_length=1, max_length=50)
 
 
 class SubmitRequest(BaseModel):
@@ -342,6 +348,79 @@ def take_exam(exam_code: str, db: Session = Depends(get_db)):
     }
 
 
+def _naive_utc_iso(dt: datetime) -> str:
+    """Trả chuỗi ISO 8601 có hậu tố Z cho 1 datetime UTC không kèm múi giờ."""
+    return dt.replace(tzinfo=None).isoformat(timespec="seconds") + "Z"
+
+
+@router.post("/code/{exam_code}/start")
+def start_exam(exam_code: str, payload: StartRequest, db: Session = Depends(get_db)):
+    """
+    Ghi nhận thời điểm sinh viên BẮT ĐẦU làm bài (lần đầu tiên) và trả về thời gian CÒN LẠI
+    tính theo đồng hồ của server. Idempotent: gọi lại (tải lại trang, đổi thiết bị) không cấp
+    lại thời gian từ đầu mà trả về phần còn lại — đồng hồ của điện thoại bị ngưng khi ứng dụng
+    xuống nền cũng không còn làm sinh viên "được thêm giờ".
+
+    Không chặn nộp bài trễ ở server: client vẫn tự nộp khi về 0 (giữ nguyên hành vi hiện tại).
+    """
+    exam = db.query(Exam).filter(Exam.exam_code == exam_code.strip().upper()).first()
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi với mã này")
+    if exam.status != EXAM_STATUS_PUBLISHED:
+        raise HTTPException(status_code=403, detail="Đề thi chưa được công bố hoặc đã đóng")
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if exam.start_time and now < exam.start_time:
+        raise HTTPException(status_code=403, detail="Chưa đến thời gian mở đề thi")
+    if exam.end_time and now > exam.end_time:
+        raise HTTPException(status_code=403, detail="Đề thi đã hết thời gian làm bài")
+
+    student_id = payload.student_id.strip()
+    if not student_id:
+        raise HTTPException(status_code=400, detail="Thiếu mã sinh viên")
+
+    already_submitted = (
+        db.query(ExamSubmission.id)
+        .filter(ExamSubmission.exam_id == exam.id, ExamSubmission.student_id == student_id)
+        .first()
+    )
+    if already_submitted:
+        raise HTTPException(status_code=409, detail="Sinh viên này đã nộp bài cho đề thi rồi")
+
+    start = (
+        db.query(ExamStart)
+        .filter(ExamStart.exam_id == exam.id, ExamStart.student_id == student_id)
+        .first()
+    )
+    if not start:
+        start = ExamStart(exam_id=exam.id, student_id=student_id, started_at=now)
+        try:
+            db.add(start)
+            db.commit()
+            db.refresh(start)
+        except IntegrityError:
+            # 2 request "Bắt đầu" gần như đồng thời — lấy bản ghi đã được tạo bởi request kia
+            db.rollback()
+            start = (
+                db.query(ExamStart)
+                .filter(ExamStart.exam_id == exam.id, ExamStart.student_id == student_id)
+                .first()
+            )
+            if not start:
+                raise HTTPException(status_code=500, detail="Lỗi nội bộ máy chủ")
+
+    duration_seconds = max(1, exam.duration_minutes or 0) * 60
+    elapsed = max(0.0, (now - start.started_at).total_seconds())
+    remaining = max(0, int(duration_seconds - elapsed))
+
+    return {
+        "started_at": _naive_utc_iso(start.started_at),
+        "server_time": _naive_utc_iso(now),
+        "duration_seconds": duration_seconds,
+        "remaining_seconds": remaining,
+    }
+
+
 @router.post("/code/{exam_code}/submit")
 def submit_exam(exam_code: str, payload: SubmitRequest, db: Session = Depends(get_db)):
     """
@@ -394,10 +473,18 @@ def submit_exam(exam_code: str, payload: SubmitRequest, db: Session = Depends(ge
             SubmissionAnswer(question_id=q.id, selected_option=selected, is_correct=is_correct)
         )
 
+    # Giờ bắt đầu đã ghi ở server (nếu SV có gọi /start) — cột started_at trước đây luôn để trống
+    start_record = (
+        db.query(ExamStart)
+        .filter(ExamStart.exam_id == exam.id, ExamStart.student_id == student_id)
+        .first()
+    )
+
     submission = ExamSubmission(
         exam_id=exam.id,
         student_id=student_id,
         student_name=(payload.student_name or "").strip() or None,
+        started_at=start_record.started_at if start_record else None,
         submitted_at=datetime.now(timezone.utc).replace(tzinfo=None),
         total_score=round(min(total_score, 10.0), 2),
         correct_count=correct_count,

@@ -30,7 +30,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const API_BASE_URL = "/api";
+import { API_BASE_URL } from "../config";
 
 const STATUS_BADGE = {
   DRAFT: {

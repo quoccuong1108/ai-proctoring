@@ -43,7 +43,7 @@ import ExamManagement from "./ExamManagement";
    Constants
    ────────────────────────────────────────────────────────── */
 
-const API_BASE_URL = "/api";
+import { API_BASE_URL } from "../config";
 const AUTO_REFRESH_INTERVAL_MS = 10000;
 
 /* ─────────────────────────────────────────────────────────

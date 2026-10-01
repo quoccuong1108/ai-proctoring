@@ -59,11 +59,22 @@ import useBrowserLockdown from "../hooks/useBrowserLockdown";
    CÁC HẰNG SỐ CẤU HÌNH HỆ THỐNG (CONSTANTS)
    ────────────────────────────────────────────────────────── */
 
-// Đường dẫn gốc gọi API backend
-const API_BASE_URL = "/api";
+import { API_BASE_URL, IS_MOBILE_DEVICE } from "../config";
 
-// Chu kỳ phân tích AI: 300ms (~3.3 FPS) — Cân bằng hoàn hảo giữa độ nhạy và tải CPU máy thí sinh
-const DETECTION_INTERVAL_MS = 300;
+// Chu kỳ phân tích AI: 300ms (~3.3 FPS) trên máy tính; 500ms (2 FPS) trên điện thoại để đỡ nóng máy/hao pin.
+const DETECTION_INTERVAL_MS = IS_MOBILE_DEVICE ? 500 : 300;
+
+// Số frame liên tiếp quay mặt để xác nhận vi phạm — quy đổi để luôn ≈ 3.6 giây bất kể chu kỳ
+// (300ms → 12 frame như trước; 500ms → 8 frame).
+const TURNING_HEAD_FRAME_THRESHOLD = Math.ceil(3600 / DETECTION_INTERVAL_MS);
+
+// Các vi phạm lockdown (khác vi phạm do AI camera) được gửi lên server để giảng viên xem trong log.
+// Đều nằm trong VALID_VIOLATION_TYPES của backend; các loại còn lại (phím tắt, chuột phải...) chỉ hiện cục bộ.
+const LOCKDOWN_TYPES_SENT_TO_SERVER = new Set([
+  "TAB_SWITCH",
+  "WINDOW_BLUR",
+  "FULLSCREEN_EXIT",
+]);
 
 // Khoảng thời gian giãn cách (cooldown) giữa 2 lần gửi cùng 1 loại vi phạm lên server: 5000ms (5 giây)
 const VIOLATION_COOLDOWN_MS = 5000;
@@ -157,6 +168,9 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   const [examData, setExamData] = useState(null); // { exam_id, exam_code, title, duration_minutes, questions }
   const [examLoading, setExamLoading] = useState(false);
   const [examLoadError, setExamLoadError] = useState("");
+  // Trạng thái bấm "Bắt đầu làm bài": gọi server ghi giờ bắt đầu rồi mới chạy đồng hồ/camera
+  const [startingExam, setStartingExam] = useState(false);
+  const [startError, setStartError] = useState("");
 
   // ── Trạng thái nộp bài & kết quả chấm điểm tự động trả về từ backend ──
   const [submitting, setSubmitting] = useState(false);
@@ -192,6 +206,9 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   const [violationLogs, setViolationLogs] = useState([]);
 
   // Tích hợp hook chống gian lận cấp trình duyệt (useBrowserLockdown)
+  // onViolation trỏ tới lockdownReportRef — gắn sau khi sendViolation được khai báo (xem effect bên dưới)
+  const lockdownReportRef = useRef(null);
+  const examActiveRef = useRef(false); // chỉ báo vi phạm lockdown lên server khi đang thật sự làm bài
   const {
     isFullscreen,
     showFullscreenOverlay,
@@ -200,7 +217,9 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
     violations: lockdownViolations,
     requestFullscreen,
     dismissBlurOverlay,
-  } = useBrowserLockdown();
+  } = useBrowserLockdown({
+    onViolation: (type) => lockdownReportRef.current?.(type),
+  });
 
   // Biến cờ xác định trạng thái hiện tại có đang bị vi phạm hay không (đổi viền đỏ cho camera)
   const isViolation = aiStatus !== "NORMAL" && aiStatus !== "INITIALIZING";
@@ -226,9 +245,14 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
       if (!video || !canvas || video.readyState < 2) return null;
 
       const ctx = canvas.getContext("2d");
-      canvas.width = 320;
-      canvas.height = 240;
-      ctx.drawImage(video, 0, 0, 320, 240);
+      // Giữ đúng tỷ lệ khung hình của camera (điện thoại thường quay dọc 3:4, không phải 4:3)
+      const snapWidth = 320;
+      const snapHeight = Math.round(
+        (snapWidth * (video.videoHeight || 3)) / (video.videoWidth || 4),
+      );
+      canvas.width = snapWidth;
+      canvas.height = snapHeight;
+      ctx.drawImage(video, 0, 0, snapWidth, snapHeight);
       return canvas.toDataURL("image/jpeg", 0.6);
     } catch (err) {
       console.error("Lỗi khi chụp snapshot camera:", err);
@@ -300,6 +324,15 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
     },
     [studentId, studentName],
   );
+
+  // Gắn hàm báo vi phạm lockdown (chuyển tab / mất focus / thoát fullscreen) lên server.
+  // Trước đây 3 loại này chỉ hiện ở màn hình sinh viên, giảng viên không thấy trong log.
+  useEffect(() => {
+    lockdownReportRef.current = (type) => {
+      if (!examActiveRef.current || !LOCKDOWN_TYPES_SENT_TO_SERVER.has(type)) return;
+      sendViolation(type, captureSnapshot());
+    };
+  }, [sendViolation, captureSnapshot]);
 
   /**
    * Chức năng: Phân tích hướng quay mặt (Head Pose Estimation) dựa trên toạ độ các điểm mốc khuôn mặt (Face Landmarks)
@@ -435,8 +468,8 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
         if (isTurning) {
           isCurrentlyTurning = true;
           turningHeadFramesRef.current += 1;
-          // Ngưỡng: 12 frames liên tục × 300ms ≈ 3.6 giây mới xác nhận vi phạm quay mặt
-          if (turningHeadFramesRef.current >= 12) {
+          // Ngưỡng: ≈ 3.6 giây quay mặt liên tục (TURNING_HEAD_FRAME_THRESHOLD frame) mới xác nhận vi phạm
+          if (turningHeadFramesRef.current >= TURNING_HEAD_FRAME_THRESHOLD) {
             newStatus = "TURNING_HEAD";
           }
         }
@@ -482,18 +515,32 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
 
         if (cancelled) return;
 
-        // 2. Tạo mô hình FaceLandmarker (chạy tăng tốc phần cứng GPU)
-        const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        // 2. Tạo mô hình FaceLandmarker — ưu tiên GPU, tự lùi về CPU nếu thiết bị/trình duyệt
+        //    (đặc biệt một số điện thoại, iOS Safari) không khởi tạo được GPU delegate
+        const faceLandmarkerOptions = (delegate) => ({
           baseOptions: {
             modelAssetPath:
               "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-            delegate: "GPU",
+            delegate,
           },
           runningMode: "VIDEO",
           numFaces: 3,
           minFaceDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
+        let faceLandmarker;
+        try {
+          faceLandmarker = await FaceLandmarker.createFromOptions(
+            vision,
+            faceLandmarkerOptions("GPU"),
+          );
+        } catch (gpuErr) {
+          console.warn("GPU delegate không dùng được, chuyển sang CPU:", gpuErr);
+          faceLandmarker = await FaceLandmarker.createFromOptions(
+            vision,
+            faceLandmarkerOptions("CPU"),
+          );
+        }
         faceLandmarkerRef.current = faceLandmarker;
 
         if (cancelled) return;
@@ -523,9 +570,14 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
 
         if (cancelled) return;
 
-        // 4. Kết nối Camera máy tính thí sinh thông qua WebRTC
+        // 4. Kết nối camera thiết bị của thí sinh thông qua WebRTC (ideal: không ép cứng độ phân giải
+        //    để điện thoại tự chọn khung hình dọc/ngang phù hợp)
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" },
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: "user",
+          },
         });
 
         if (cancelled) {
@@ -535,16 +587,23 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
 
         streamRef.current = stream;
 
-        // Gán luồng camera vào video phân tích ngầm
+        // Gán luồng camera vào video phân tích ngầm. Gọi play() tường minh vì iOS Safari
+        // không phải lúc nào cũng tự phát dù đã có autoPlay + muted + playsInline.
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await new Promise((resolve) => {
-            videoRef.current.onloadeddata = resolve;
-          });
+          videoRef.current.play?.().catch(() => {});
+          // Có giới hạn 8 giây: nếu trình duyệt không bắn onloadeddata thì không kẹt mãi ở "Đang khởi tạo"
+          await Promise.race([
+            new Promise((resolve) => {
+              videoRef.current.onloadeddata = resolve;
+            }),
+            new Promise((resolve) => setTimeout(resolve, 8000)),
+          ]);
         }
         // Gán luồng camera vào video hiển thị trực tiếp
         if (liveVideoRef.current) {
           liveVideoRef.current.srcObject = stream;
+          liveVideoRef.current.play?.().catch(() => {});
         }
 
         if (cancelled) return;
@@ -606,13 +665,31 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   });
 
   // ── Đếm ngược thời gian làm bài thi (Countdown Timer) ──
+  // Tính theo MỐC KẾT THÚC (deadlineRef, dựa trên thời gian còn lại do server trả về lúc bấm "Bắt đầu")
+  // thay vì trừ 1 mỗi giây: điện thoại làm chậm/ngưng setInterval khi ứng dụng xuống nền hoặc khóa màn hình,
+  // trừ dần sẽ khiến đồng hồ chạy chậm. Có tính lại ngay khi ứng dụng quay lại (visibilitychange).
+  const deadlineRef = useRef(null);
   useEffect(() => {
     if (!isExamStarted) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
+    const tick = () => {
+      if (deadlineRef.current == null) return;
+      setTimeLeft(
+        Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000)),
+      );
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [isExamStarted]);
+
+  // Cờ "đang thi thật" cho callback báo vi phạm lockdown: không gửi vi phạm ở màn nhập mã / xem trước / kết quả
+  useEffect(() => {
+    examActiveRef.current = isExamStarted && !examResult;
+  }, [isExamStarted, examResult]);
 
   // Hàm định dạng giây thành mm:ss
   const formatTime = useCallback((seconds) => {
@@ -680,6 +757,54 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
       setExamLoading(false);
     }
   }, []);
+
+  // ── Bấm "Bắt đầu làm bài": xin server ghi giờ bắt đầu và trả về thời gian CÒN LẠI ──
+  // Nhờ vậy tải lại trang / đổi thiết bị / ứng dụng bị treo nền không làm đồng hồ về lại từ đầu.
+  // Nếu server không phản hồi (mất mạng, lỗi 5xx) thì vẫn cho làm bài với toàn bộ thời lượng đề
+  // (giữ hành vi cũ) — không để lỗi mạng chặn sinh viên vào thi.
+  const handleStartExam = useCallback(async () => {
+    if (!examData || startingExam) return;
+    setStartingExam(true);
+    setStartError("");
+
+    let remainingSeconds = Math.max(1, examData.duration_minutes || 0) * 60;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/exams/code/${encodeURIComponent(examData.exam_code)}/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_id: studentId }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 409) {
+        // Đã nộp bài trước đó — chuyển thẳng sang màn hình "đã nộp"
+        setExamResult({ alreadySubmitted: true });
+        setStartingExam(false);
+        return;
+      }
+      if (response.status === 403 || response.status === 404) {
+        // Đề chưa mở / đã hết giờ mở đề / không còn tồn tại: hiển thị lý do và không cho vào thi
+        setStartError(data.detail || "Không thể bắt đầu bài thi này");
+        setStartingExam(false);
+        return;
+      }
+      if (response.ok && Number.isFinite(data.remaining_seconds)) {
+        remainingSeconds = data.remaining_seconds;
+      } else {
+        console.warn("Máy chủ không trả thời gian còn lại, dùng thời lượng đầy đủ của đề:", response.status);
+      }
+    } catch (err) {
+      console.warn("Không gọi được API bắt đầu bài thi, dùng thời lượng đầy đủ của đề:", err);
+    }
+
+    deadlineRef.current = Date.now() + remainingSeconds * 1000;
+    setTimeLeft(remainingSeconds);
+    setStartingExam(false);
+    setIsExamStarted(true);
+  }, [examData, startingExam, studentId]);
 
   // ── Hàm nộp bài — dùng chung cho cả nộp chủ động (bấm nút) và tự động nộp khi hết giờ ──
   const handleSubmitExam = useCallback(
@@ -1000,16 +1125,34 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
             </ul>
           </div>
 
+          {startError && (
+            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-red-700 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm leading-relaxed">{startError}</p>
+            </div>
+          )}
+
           <button
-            onClick={() => setIsExamStarted(true)}
+            onClick={handleStartExam}
+            disabled={startingExam}
             className="w-full py-3.5 rounded-xl font-bold text-white bg-accent-cyan
                        hover:brightness-95 shadow-sm active:scale-[0.99]
-                       transition-all cursor-pointer"
+                       disabled:opacity-50 disabled:cursor-not-allowed
+                       transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            Bắt đầu làm bài
+            {startingExam ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Đang bắt đầu...
+              </>
+            ) : (
+              "Bắt đầu làm bài"
+            )}
           </button>
           <button
-            onClick={() => setExamData(null)}
+            onClick={() => {
+              setStartError("");
+              setExamData(null);
+            }}
             className="w-full text-center text-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
           >
             ← Nhập mã đề khác
@@ -1020,9 +1163,26 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   }
 
   return (
-    <div className="exam-workspace min-h-screen bg-bg-primary text-text-primary flex flex-col select-none">
-      {/* Các thẻ Video và Canvas ngầm phục vụ trích xuất dữ liệu phân tích AI */}
-      <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+    <div className="exam-workspace min-h-dvh bg-bg-primary text-text-primary flex flex-col select-none">
+      {/* Các thẻ Video và Canvas ngầm phục vụ trích xuất dữ liệu phân tích AI.
+          KHÔNG dùng display:none (class "hidden") cho video: iOS Safari không phát/giải mã khung hình
+          của video bị display:none, khiến AI không nhận được ảnh. Thay bằng phần tử 1×1px trong suốt. */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
       <canvas ref={canvasRef} width="320" height="240" className="hidden" />
 
       {/* ═══ MODAL CẢNH BÁO: RỜI CỬA SỔ / CHUYỂN TAB TRÌNH DUYỆT ═══ */}
@@ -1038,7 +1198,7 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="glass-card p-10 max-w-lg text-center space-y-6 border-red-500/50"
+              className="glass-card p-6 sm:p-10 mx-4 max-w-lg text-center space-y-6 border-red-500/50"
             >
               <div className="w-24 h-24 mx-auto rounded-full bg-red-500/20 flex items-center justify-center">
                 <AlertTriangle className="w-12 h-12 text-red-500" />
@@ -1081,7 +1241,7 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              className="glass-card p-10 max-w-lg text-center space-y-6"
+              className="glass-card p-6 sm:p-10 mx-4 max-w-lg text-center space-y-6"
             >
               <div className="w-20 h-20 mx-auto rounded-full bg-red-500/20 flex items-center justify-center">
                 <Maximize className="w-10 h-10 text-red-700" />

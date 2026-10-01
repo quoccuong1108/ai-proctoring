@@ -733,3 +733,68 @@ def health_check():
         "version": "3.0.0",
         "architecture": "Client-side AI Detection + Event-driven Logging",
     }
+
+
+# ──────────────────────────────────────────────────────────
+# PHỤC VỤ GIAO DIỆN WEB (frontend/dist) — dùng cho web PC và web/PWA trên điện thoại
+# ──────────────────────────────────────────────────────────
+# Sau khi chạy `npm run build` trong thư mục frontend, FastAPI phục vụ luôn giao diện ở cùng
+# địa chỉ với API. Nhờ vậy chỉ cần MỘT tunnel HTTPS (camera trên điện thoại bắt buộc HTTPS)
+# và không còn vướng proxy của Vite. Nếu chưa build thì bỏ qua — chạy `npm run dev` như trước.
+# Phải đặt SAU MỌI route /api và /health để route catch-all bên dưới không nuốt chúng.
+
+FRONTEND_DIST_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist"
+)
+_FRONTEND_INDEX = os.path.join(FRONTEND_DIST_DIR, "index.html")
+
+# Đặt Content-Type tường minh: trên một số máy Windows, registry map .js thành text/plain
+# khiến trình duyệt từ chối nạp module script.
+_STATIC_MEDIA_TYPES = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".webmanifest": "application/manifest+json",
+    ".json": "application/json",
+    ".wasm": "application/wasm",
+    ".html": "text/html",
+}
+
+if os.path.isfile(_FRONTEND_INDEX):
+    _dist_root = os.path.realpath(FRONTEND_DIST_DIR)
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_frontend(full_path: str):
+        """Trả file tĩnh trong frontend/dist; đường dẫn không tồn tại rơi về index.html (SPA)."""
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Không tìm thấy")
+
+        candidate = os.path.realpath(os.path.join(_dist_root, full_path))
+        # Chống path traversal: file phải nằm trong frontend/dist
+        if (
+            full_path
+            and candidate.startswith(_dist_root + os.sep)
+            and os.path.isfile(candidate)
+        ):
+            ext = os.path.splitext(candidate)[1].lower()
+            # Tên file trong /assets/ có mã băm nội dung nên cache lâu được; file khác luôn kiểm tra lại
+            cache = (
+                "public, max-age=31536000, immutable"
+                if full_path.startswith("assets/")
+                else "no-cache"
+            )
+            return FileResponse(
+                candidate,
+                media_type=_STATIC_MEDIA_TYPES.get(ext),
+                headers={"Cache-Control": cache},
+            )
+
+        return FileResponse(
+            _FRONTEND_INDEX,
+            media_type="text/html",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    logger.info("Đã bật phục vụ giao diện web từ %s", FRONTEND_DIST_DIR)

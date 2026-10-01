@@ -9,6 +9,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
  *   3. Chặn phím tắt gian lận (F12, Ctrl+C/V/X/U, Ctrl+Shift+I/J/C)
  *   4. Chặn chuột phải, copy, paste, cut
  *
+ * @param {{ onViolation?: (type: string, message: string) => void }} [options]
+ *   onViolation: được gọi mỗi khi ghi nhận một vi phạm lockdown — nơi gọi dùng để gửi lên server.
+ *
  * @returns {{
  *   isFullscreen: boolean,
  *   tabSwitchCount: number,
@@ -17,7 +20,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
  *   violations: Array<{type: string, timestamp: string, message: string}>
  * }}
  */
-export default function useBrowserLockdown() {
+export default function useBrowserLockdown({ onViolation } = {}) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFullscreenOverlay, setShowFullscreenOverlay] = useState(false);
   const [showBlurOverlay, setShowBlurOverlay] = useState(false);
@@ -26,6 +29,14 @@ export default function useBrowserLockdown() {
 
   const tabSwitchCountRef = useRef(0);
   const isInitializedRef = useRef(false);
+  // Thời điểm lần "rời cửa sổ" gần nhất đã được đếm — trên điện thoại một lần chuyển app
+  // có thể bắn cả visibilitychange lẫn blur, không được đếm thành 2 vi phạm.
+  const lastLeaveAtRef = useRef(0);
+  // Giữ callback mới nhất trong ref để không phải đăng ký lại toàn bộ listener khi nó đổi
+  const onViolationRef = useRef(onViolation);
+  useEffect(() => {
+    onViolationRef.current = onViolation;
+  }, [onViolation]);
 
   /**
    * Ghi nhận một vi phạm lockdown mới
@@ -42,6 +53,11 @@ export default function useBrowserLockdown() {
       message,
     };
     setViolations((prev) => [entry, ...prev]);
+    try {
+      onViolationRef.current?.(type, message);
+    } catch (err) {
+      console.warn('onViolation callback lỗi:', err);
+    }
   }, []);
 
   /**
@@ -90,6 +106,9 @@ export default function useBrowserLockdown() {
     // ──────────────────────────────────────────────────
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        const now = Date.now();
+        if (now - lastLeaveAtRef.current < 1500) return; // đã đếm lần rời này rồi
+        lastLeaveAtRef.current = now;
         tabSwitchCountRef.current += 1;
         setTabSwitchCount(tabSwitchCountRef.current);
         setShowBlurOverlay(true);
@@ -100,6 +119,9 @@ export default function useBrowserLockdown() {
     const handleWindowBlur = () => {
       // Bổ sung bắt sự kiện blur khi click ra ngoài cửa sổ
       if (!document.hidden) {
+        const now = Date.now();
+        if (now - lastLeaveAtRef.current < 1500) return; // visibilitychange vừa đếm lần rời này
+        lastLeaveAtRef.current = now;
         tabSwitchCountRef.current += 1;
         setTabSwitchCount(tabSwitchCountRef.current);
         setShowBlurOverlay(true);

@@ -3,12 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: dùng đủ màn hình tai thỏ (iPhone); giao diện chừa lề bằng env(safe-area-inset-*) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta
       name="description"
       content="EduShield AI - Hệ thống Giám sát Thi Trực tuyến Thông minh sử dụng AI để đảm bảo tính trung thực trong thi cử."
     />
     <meta name="theme-color" content="#087f72" />
+
+    <!-- PWA: cho phép "Thêm vào Màn hình chính" trên Android (Chrome) và iOS (Safari) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="EduShield" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="format-detection" content="telephone=no" />
+
     <title>EduShield AI - Giám sát Thi Trực tuyến</title>
   </head>
   <body>

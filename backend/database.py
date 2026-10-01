@@ -182,6 +182,7 @@ class Exam(Base):
         order_by="Question.order_index",
     )
     submissions = relationship("ExamSubmission", back_populates="exam", cascade="all, delete-orphan")
+    starts = relationship("ExamStart", back_populates="exam", cascade="all, delete-orphan")
 
     def to_dict(self, include_questions: bool = False, with_answers: bool = False) -> dict:
         data = {
@@ -235,6 +236,31 @@ class Question(Base):
         if with_answer:
             data["correct_option"] = self.correct_option
         return data
+
+
+class ExamStart(Base):
+    """
+    Thời điểm sinh viên BẮT ĐẦU làm 1 đề thi, ghi nhận ở phía server (lần bấm "Bắt đầu làm bài"
+    đầu tiên). Dùng để tính thời gian còn lại đáng tin cậy: đồng hồ ở trình duyệt/điện thoại có
+    thể bị ngưng khi ứng dụng bị đẩy xuống nền, hoặc bị đặt lại khi sinh viên tải lại trang.
+
+    Bảng mới, tự được tạo bởi init_db() (create_all) — không cần migrate dữ liệu cũ.
+    Mỗi cặp (đề thi, sinh viên) chỉ có 1 dòng: bấm "Bắt đầu" lại (tải lại trang, đổi thiết bị)
+    sẽ nhận về thời gian CÒN LẠI chứ không được cấp lại từ đầu.
+    """
+
+    __tablename__ = "exam_starts"
+    __table_args__ = (
+        UniqueConstraint("exam_id", "student_id", name="uq_exam_start_student"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(String(50), nullable=False, index=True)
+    # Lưu dạng UTC không kèm múi giờ — cùng quy ước với start_time/end_time/submitted_at của module Đề thi.
+    started_at = Column(DateTime, nullable=False)
+
+    exam = relationship("Exam", back_populates="starts")
 
 
 class ExamSubmission(Base):
