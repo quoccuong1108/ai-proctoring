@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/GBinh02/AI-Protoring",
+  "commit": "235091294ac787c621877d5187fbc17c32fbb1b0",
+  "remote_HEAD_rechecked": "2026-09-28; unchanged",
+  "sha256": {
+    "backend/exam_parser.py": "4de3ed60e4cf6892e5a63f5aa3b70f0464661b944c21275c1a9a468265a549b7",
+    "backend/exams_router.py": "eb2fd30fa385cfb7af6dff68b24f6c47fc543d083434f53669cfd76554d55d9a",
+    "backend/scheduler.py": "38d88ee0900950c99647e89b10745238e1266fb5d5799d43f17bef0ada9de04c",
+    "backend/database.py": "aee6acaa03a47695734a1327fd45748c9184a97e041673420e279c36958c0c2b",
+    "backend/auth.py": "923c92be1ff71d589b3f7f9c24a12643b672b71299fa689870e4cab732b38a93",
+    "backend/main.py": "fce25a4d503367edbd454286f89c1fadecb7e23cf97db73f13b5f97ff95c267f",
+    "frontend/src/main.jsx": "6d4e35b8e63aa01103528c259b47c5ad292672f08946e97c818b84df9ad32490",
+    "frontend/src/App.jsx": "0dd0f83d3295c8bf1a7ed0e562353ed04a3d83dc01186df87069b84db7623005",
+    "frontend/src/components/ModalShell.jsx": "ef439ecd8486ef415d9ed939c559e04b8345a2feb1c7c55a88f4b2a7fb6789df",
+    "frontend/src/components/StudentExam.jsx": "082aace84d654abaa38d46763482916c5f4d19785a8848f079ddadfb0e6e7e50",
+    "frontend/src/components/ExamManagement.jsx": "70c6595a345639c473e844c3c2b61a63f5a93455975198a85f748d03370c030a",
+    "frontend/src/components/ProctorDashboard.jsx": "c69f8cd9ce5b8fa13e16ccbab67f27d95733261a145515433ca7b82bac1a1aa2",
+    "frontend/src/components/StudentGateway.jsx": "1c0e860f03bfdfe543029ddb0bd88d58517fe0a2e9715fe4191dc40785bdde16",
+    "frontend/src/hooks/useBrowserLockdown.js": "36e0911f0465317813834ca126a4b1e627bb09473661d178ecd7611c9851fde6"
+  }
+}

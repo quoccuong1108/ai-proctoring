@@ -1,0 +1,38 @@
+\begin{thebibliography}{1}
+
+\bibitem{repo}
+{GBinh02 và các cộng tác viên}.
+\newblock {AI-Protoring}: mã nguồn hệ thống {EduShield AI}.
+\newblock
+  \url{https://github.com/GBinh02/AI-Protoring/tree/97a11fea3ed322e3c05eec84a3ff43acea11e51e},
+  2026.
+\newblock Commit 97a11fe, khảo sát ngày 01/10/2026.
+
+\bibitem{mpface}
+{Google AI Edge}.
+\newblock Face landmark detection guide for web.
+\newblock
+  \url{https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/web_js}.
+\newblock Tài liệu chính thức MediaPipe; truy cập ngày 25/09/2026.
+
+\bibitem{mpobject}
+{Google AI Edge}.
+\newblock Object detection guide for web.
+\newblock
+  \url{https://ai.google.dev/edge/mediapipe/solutions/vision/object_detector/web_js}.
+\newblock Tài liệu chính thức MediaPipe; truy cập ngày 25/09/2026.
+
+\bibitem{template}
+{Mẫu do người dùng cung cấp}.
+\newblock {DAU-mau-bao-cao-do-an-TTNT}.
+\newblock \url{https://www.overleaf.com/read/fpwzvjpdzxmd\#17f687}.
+\newblock Mẫu báo cáo LaTeX, Khoa Công nghệ Thông tin, Trường Đại
+  học Kiến trúc Đà Nẵng; truy cập ngày 25/09/2026.
+
+\bibitem{sqlitewal}
+{SQLite}.
+\newblock Write-ahead logging.
+\newblock \url{https://www.sqlite.org/wal.html}.
+\newblock Tài liệu chính thức; truy cập ngày 25/09/2026.
+
+\end{thebibliography}

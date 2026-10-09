@@ -1,0 +1,25 @@
+% !TEX root = ../do-an.tex
+% =====================================================================
+%  styles/settings.tex
+%  Các thiết lập chung, nạp từ file chính do-an.tex.
+%  SINH VIÊN KHÔNG SỬA FILE NÀY.
+%
+%  Lưu ý: lệnh khai báo lớp tài liệu nằm ở file do-an.tex chứ không nằm
+%  ở đây. Lý do: Overleaf dò file chính bằng cách tìm chuỗi khai báo lớp
+%  tài liệu trong các file. Nếu chuỗi đó xuất hiện ở file này, Overleaf
+%  sẽ biên dịch nhầm file này và báo lỗi "no legal end found", vì file
+%  này chỉ chứa thiết lập chứ không chứa phần thân tài liệu.
+% =====================================================================
+
+% Toàn bộ nhận diện DAU: phông, màu, bìa, hộp trình bày, header
+\usepackage{styles/dau}
+\dauLayout
+
+% Giãn dòng và khoảng cách đoạn theo quy cách đồ án
+\linespread{1.25}
+\usepackage[skip=8pt plus 1pt, indent=15pt]{parskip}
+
+% Ghi chú: mẫu gốc dùng gói atbegshi để vứt trang đầu, vì trang bìa của
+% mẫu gốc dựng bằng minipage nên sinh ra một trang trắng. Trang bìa ở
+% đây dựng bằng môi trường titlepage nên không có trang trắng, và nếu
+% giữ thủ thuật đó thì chính trang bìa sẽ bị vứt mất.

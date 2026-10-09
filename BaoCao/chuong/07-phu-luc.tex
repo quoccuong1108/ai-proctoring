@@ -1,0 +1,250 @@
+\chapter*{Phụ lục A. Danh mục API}
+\markboth{Phụ lục A. Danh mục API}{}
+\setcounter{table}{0}\renewcommand{\thetable}{A.\arabic{table}}
+\renewcommand{\theHtable}{appendixA.\arabic{table}}
+\setcounter{lstlisting}{0}\renewcommand{\thelstlisting}{A.\arabic{lstlisting}}
+\addcontentsline{toc}{chapter}{Phụ lục A. Danh mục API}
+Danh mục dưới đây được đối chiếu với các decorator trong \src{main.py} và \src{exams_router.py}. ``GV'' nghĩa là cần token giám thị; ``Công khai'' nghĩa là không yêu cầu token giám thị, không đồng nghĩa với việc có xác thực sinh viên riêng. Các API tài liệu tự sinh của framework không nằm trong danh mục nghiệp vụ.
+
+\begin{longtable}{@{}L{1.9cm}L{6.9cm}L{1.8cm}L{3.9cm}@{}}
+\caption{Các tuyến API nghiệp vụ và tình trạng truy cập}\\
+\toprule Phương thức & Đường dẫn & Quyền & Chức năng \\\midrule\endfirsthead
+\toprule Phương thức & Đường dẫn & Quyền & Chức năng \\\midrule\endhead
+POST & \src{/api/violations} & Công khai & Tạo sự kiện, có thể kèm ảnh.\\
+GET & \src{/api/violations} & GV & Danh sách, bộ lọc, limit/offset.\\
+GET & \src{/api/students} & GV & Tổng hợp theo sinh viên.\\
+GET & \src{/api/violations/stats} & GV & Thống kê sự kiện.\\
+DELETE & \src{/api/violations/all} & GV & Xóa toàn bộ sự kiện và dữ liệu ảnh liên quan.\\
+DELETE & \src{/api/violations/{violation_id}/image} & GV & Xóa ảnh của một sự kiện.\\
+GET & \src{/api/snapshots/{student_folder}/{filename}} & GV & Đọc ảnh minh chứng.\\
+GET & \src{/health} & Công khai & Kiểm tra trạng thái dịch vụ.\\
+POST & \src{/api/exams/upload} & GV & Nhập tệp, tạo đề nháp.\\
+GET & \src{/api/exams} & GV & Danh sách đề.\\
+GET & \src{/api/exams/{exam_id}} & GV & Chi tiết có đáp án.\\
+POST & \src{/api/exams/{exam_id}/publish} & GV & Công bố và cấu hình đề.\\
+DELETE & \src{/api/exams/{exam_id}} & GV & Xóa đề chưa có bài nộp.\\
+GET & \src{/api/exams/code/{exam_code}/take} & Công khai & Lấy đề không kèm đáp án.\\
+POST & \src{/api/exams/code/{exam_code}/start} & Công khai & Ghi mốc bắt đầu, trả thời gian còn lại.\\
+POST & \src{/api/exams/code/{exam_code}/submit} & Công khai & Nộp và chấm bài.\\
+GET & \src{/api/exams/{exam_id}/results} & GV & Kết quả theo đề.\\
+GET & \src{/api/exams/{exam_id}/export} & GV & Xuất bảng điểm Excel.\\
+\bottomrule
+\end{longtable}
+
+\section*{A.1. Ví dụ yêu cầu nộp bài}
+Ví dụ sử dụng ID câu hỏi giả định 101 và 102. Khi chạy thực tế phải lấy ID từ phản hồi API lấy đề; không sao chép nguyên ID minh họa.
+\begin{lstlisting}[language={},caption={Cấu trúc JSON nộp bài minh họa}]
+{
+  "student_id": "SV-DEMO",
+  "student_name": "Demo Student",
+  "answers": [
+    {"question_id": 101, "selected_option": "A"},
+    {"question_id": 102, "selected_option": "B"}
+  ],
+  "auto_submitted": false
+}
+\end{lstlisting}
+Phản hồi thành công gồm \src{total_score}, \src{correct_count}, \src{total_questions}, \src{pass_score}, \src{passed}, \src{status}. Mã 409 biểu thị sinh viên đã có bản nộp cho đề. Ứng dụng cần xử lý tình huống máy chủ đã lưu nhưng phản hồi bị mất: gửi lại có thể nhận 409, nên nên có tuyến tra cứu xác nhận bản nộp theo phiên ở phiên bản tiếp theo.
+
+\section*{A.2. Ví dụ yêu cầu ghi sự kiện}
+\begin{lstlisting}[language={},caption={Sự kiện minh họa không kèm ảnh}]
+{
+  "student_id": "SV-DEMO",
+  "student_name": "Demo Student",
+  "violation_type": "NO_FACE",
+  "captured_at": "2026-09-25T14:00:00+07:00"
+}
+\end{lstlisting}
+Ảnh khi có được truyền qua \src{image_base64}. Backend chấp nhận năm nhãn camera và ba nhãn trình duyệt: \src{TAB_SWITCH}, \src{WINDOW_BLUR}, \src{FULLSCREEN_EXIT}. Sự chấp nhận ở API không chứng minh frontend hiện đã gửi ba nhãn này.
+
+\chapter*{Phụ lục B. Hướng dẫn sử dụng và vận hành}
+\markboth{Phụ lục B. Hướng dẫn vận hành}{}
+\setcounter{table}{0}\renewcommand{\thetable}{B.\arabic{table}}
+\renewcommand{\theHtable}{appendixB.\arabic{table}}
+\setcounter{lstlisting}{0}\renewcommand{\thelstlisting}{B.\arabic{lstlisting}}
+\addcontentsline{toc}{chapter}{Phụ lục B. Hướng dẫn sử dụng và vận hành}
+\section*{B.1. Chuẩn bị môi trường phát triển}
+Cần Git, Python phù hợp với các phụ thuộc và Node.js đáp ứng yêu cầu của phiên bản Vite trong lockfile. Bộ kiểm thử của báo cáo chạy trên Python 3.12.14. Nên dùng môi trường ảo riêng, cài từ tệp dự án và ghi lại phiên bản thực tế. Các lệnh dưới đây minh họa môi trường Bash.
+
+\begin{lstlisting}[language=bash,caption={Lấy đúng phiên bản mã khảo sát}]
+git clone https://github.com/GBinh02/AI-Protoring.git
+cd AI-Protoring
+git checkout 97a11fea3ed322e3c05eec84a3ff43acea11e51e
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+\end{lstlisting}
+Trên Windows PowerShell, lệnh kích hoạt môi trường tương ứng là \src{.venv/Scripts/Activate.ps1}. Không cần đổi chính sách máy nếu môi trường hiện tại đã cho phép chạy; có thể gọi trực tiếp Python trong môi trường ảo theo cấu hình của người dùng.
+
+Đặt \src{PROCTOR_API_TOKEN} bằng một giá trị bí mật riêng trước khi khởi động. Giá trị \texttt{report-fixture-only} trong mã kiểm thử chỉ dành cho dữ liệu giả lập, không dùng làm token vận hành. Không đưa token thật vào báo cáo, kho mã công khai hoặc tệp ảnh chụp màn hình.
+
+\begin{lstlisting}[language=bash,caption={Chạy backend và frontend trong hai terminal}]
+# Terminal 1: thu muc backend, da cau hinh token
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+
+# Terminal 2: thu muc frontend
+npm ci
+npm run dev
+\end{lstlisting}
+Kiểm tra \src{http://127.0.0.1:8000/health} để xác nhận backend phản hồi; mở địa chỉ frontend do Vite in ra. Proxy \src{/api} được cấu hình trỏ đến localhost:8000. Nếu thay cổng backend, cần chỉnh cấu hình tương ứng. Hướng dẫn này được suy ra từ cấu trúc dự án; bộ kiểm thử báo cáo không khởi chạy hai tiến trình web để thử camera.
+
+\section*{B.2. Quy trình của giảng viên}
+\begin{enumerate}
+\item Truy cập vai trò giảng viên và cung cấp token được quản trị viên cấu hình.
+\item Mở quản lý đề, chuẩn bị tệp đúng mẫu và tải lên; đọc số câu chấp nhận cùng danh sách lỗi.
+\item Kiểm tra nội dung và đáp án, cấu hình thời lượng, điểm đạt và xáo trộn; công bố khi đã sẵn sàng.
+\item Cung cấp mã đề cho sinh viên. Trước buổi thi, thử luồng với dữ liệu giả và thiết bị mục tiêu.
+\item Theo dõi tổng quan, lọc sinh viên và đọc ảnh cùng thời gian khi có cảnh báo. Chờ chu kỳ cập nhật hoặc tải lại khi cần.
+\item Xem kết quả và xuất Excel. Kiểm tra phạm vi sự kiện được ghép vào điểm số, nhất là khi một mã sinh viên làm nhiều đề.
+\end{enumerate}
+Các thao tác xóa dữ liệu cần được cân nhắc theo quy trình lưu trữ của lớp học. API xóa đề từ chối khi đã có bài nộp, nhưng các API xóa sự kiện vẫn là thao tác riêng; không sử dụng chúng để thử nghiệm trên dữ liệu cần giữ.
+
+\section*{B.3. Quy trình của sinh viên}
+\begin{enumerate}
+\item Nhập chính xác thông tin theo hướng dẫn của giảng viên và mã đề được cung cấp.
+\item Chuẩn bị camera, vị trí ngồi, ánh sáng và kết nối mạng; đóng các ứng dụng không cần thiết.
+\item Cho phép camera khi được hỏi và chờ trạng thái mô hình. Báo giảng viên nếu thiết bị không thể khởi tạo.
+\item Đọc câu hỏi, chọn đáp án và theo dõi thời gian; kiểm tra các câu chưa trả lời trước khi nộp.
+\item Nộp bài, chờ phản hồi xác nhận. Khi có lỗi mạng, không suy đoán rằng thao tác đã thành công chỉ vì đã nhấn nút.
+\item Sau khi hoàn tất, rời màn hình thi và kiểm tra chỉ báo camera trên trình duyệt đã tắt.
+\end{enumerate}
+Cảnh báo có thể xuất hiện do điều kiện môi trường hoặc nhận diện sai. Sinh viên cần có kênh phản hồi và giảng viên cần xem xét trước khi đưa ra quyết định liên quan kết quả học tập.
+
+\section*{B.4. Lưu trữ, sao lưu và triển khai}
+CSDL SQLite và thư mục snapshots cần được quản lý cùng nhau vì CSDL chứa đường dẫn tới tệp ảnh. Khi sao lưu một CSDL đang bật WAL, nên dùng cơ chế sao lưu nhất quán của SQLite hoặc dừng ghi theo quy trình phù hợp, không tùy tiện chỉ sao chép tệp chính trong lúc đang thay đổi dữ liệu.
+
+Bản build frontend được tạo bằng \src{npm run build}. Đưa thư mục build lên máy phục vụ tĩnh và cấu hình chuyển tiếp API tới backend; bổ sung HTTPS cho môi trường công khai. Chỉ cấu hình CORS không thay thế xác thực. Giá trị cho phép origin rộng trong mã cần được rà soát theo miền triển khai thực tế.
+
+Khi chạy nhiều tiến trình backend, cần xác định một nơi chịu trách nhiệm tác vụ dọn ảnh để tránh nhiều scheduler cùng thao tác. Trước khi nâng phiên bản, sao lưu dữ liệu, chạy kiểm thử và chuẩn bị migration nếu mô hình bảng thay đổi. Các công việc này là hướng dẫn triển khai đề xuất, chưa phải một pipeline vận hành đã có trong kho.
+
+\chapter*{Phụ lục C. Định dạng đề thi}
+\markboth{Phụ lục C. Định dạng đề thi}{}
+\setcounter{table}{0}\renewcommand{\thetable}{C.\arabic{table}}
+\renewcommand{\theHtable}{appendixC.\arabic{table}}
+\setcounter{lstlisting}{0}\renewcommand{\thelstlisting}{C.\arabic{lstlisting}}
+\addcontentsline{toc}{chapter}{Phụ lục C. Định dạng đề thi}
+\section*{C.1. Mẫu Excel}
+Worksheet đầu tiên có bảy cột theo thứ tự bên dưới. Dòng đầu là tiêu đề và không được xem là câu hỏi. Nội dung mẫu chỉ phục vụ thử nhập.
+\begin{table}[htbp]
+\centering\small
+\caption{Ví dụ cấu trúc hàng Excel}
+\begin{tabularx}{\textwidth}{@{}cXccccc@{}}\toprule
+STT & Câu hỏi & A & B & C & D & Đáp án đúng\\\midrule
+1 & $2+2$ bằng bao nhiêu? & 3 & 4 & 5 & 6 & B\\
+2 & $3\times2$ bằng bao nhiêu? & 6 & 7 & 8 & 9 & A\\\bottomrule
+\end{tabularx}
+\end{table}
+Không đặt các cột phụ trước bảy cột vì sẽ làm lệch vị trí đọc. Các công thức hoặc định dạng trình bày không được bảo đảm giữ nguyên trên giao diện. Sau nhập cần kiểm tra lại nội dung thay vì chỉ dựa vào tên tệp đúng đuôi.
+
+\section*{C.2. Mẫu Word}
+Mỗi dòng dưới đây là một đoạn văn riêng trong tài liệu Word:
+\begin{quote}
+Câu 1: 2 + 2 bằng bao nhiêu?\\
+A. 3\\
+B. 4\\
+C. 5\\
+D. 6\\
+Đáp án: B
+\end{quote}
+Lặp cấu trúc cho các câu tiếp theo. Không dùng ảnh chụp đề để thay thế văn bản và không giả định rằng bố cục bảng Word bất kỳ sẽ được đọc đúng. Với đề dài, nên thử một tệp nhỏ trước rồi kiểm tra số câu và đáp án đã nhập.
+
+\chapter*{Phụ lục D. Truy vết nguồn và tái lập}
+\markboth{Phụ lục D. Truy vết và tái lập}{}
+\setcounter{table}{0}\renewcommand{\thetable}{D.\arabic{table}}
+\renewcommand{\theHtable}{appendixD.\arabic{table}}
+\setcounter{lstlisting}{0}\renewcommand{\thelstlisting}{D.\arabic{lstlisting}}
+\addcontentsline{toc}{chapter}{Phụ lục D. Truy vết nguồn và tái lập}
+\section*{D.1. Mốc mã nguồn và tệp tham chiếu}
+Kho mã: \url{https://github.com/GBinh02/AI-Protoring}.\\
+Commit đầy đủ:\par
+\noindent\texttt{97a11fea3ed322e3c05eec84a3ff43acea11e51e}.
+
+\begin{longtable}{@{}L{6.1cm}L{8.9cm}@{}}
+\caption{Liên hệ giữa nội dung báo cáo và mã nguồn}\\
+\toprule Nội dung & Vị trí kiểm chứng \\\midrule\endfirsthead
+\toprule Nội dung & Vị trí kiểm chứng \\\midrule\endhead
+Ngưỡng AI, mô hình, ảnh, cooldown & \src{frontend/src/components/StudentExam.jsx}\\
+Sự kiện trình duyệt & \src{frontend/src/hooks/useBrowserLockdown.js}\\
+Tổng quan và chu kỳ cập nhật & \src{frontend/src/components/ProctorDashboard.jsx}\\
+Giao diện quản lý đề & \src{frontend/src/components/ExamManagement.jsx}\\
+Bảng dữ liệu, ràng buộc, thời gian & \src{backend/database.py}\\
+API sự kiện và ảnh & \src{backend/main.py}\\
+Token quản lý & \src{backend/auth.py}\\
+Nhập và kiểm tra tệp & \src{backend/exam_parser.py}\\
+Công bố, chấm, kết quả và xuất & \src{backend/exams_router.py}\\
+Dọn ảnh cũ & \src{backend/scheduler.py}\\
+Phụ thuộc và proxy phát triển & \src{frontend/package.json}, \src{frontend/package-lock.json}, \src{frontend/vite.config.js}, \src{backend/requirements.txt}.\\
+\bottomrule
+\end{longtable}
+
+\section*{D.2. Tái lập bộ kiểm thử}
+Bộ nguồn báo cáo chứa \src{code/verify_backend.py}, \src{evidence/results-current.json}, \src{evidence/run-current.log} và bản kê môi trường. Script nhận đường dẫn tới thư mục backend, tạo dữ liệu giả, chuyển CSDL vào thư mục tạm và ghi kết quả ra đường dẫn chỉ định. Không chạy script với mục đích thử xóa hoặc sửa dữ liệu thật.
+
+\begin{lstlisting}[language=bash,caption={Chạy lại kiểm thử từ thư mục báo cáo}]
+python -m pip install -r /path/to/AI-Protoring/backend/requirements.txt
+python -m pip install httpx
+python code/verify_backend.py \
+  --backend /path/to/AI-Protoring/backend \
+  --output /tmp/edushield-report-results.json
+\end{lstlisting}
+Trước khi đối chiếu kết quả, xác nhận backend ở đúng commit. Nếu chạy với commit mới hơn, ghi nhận kết quả như một lần kiểm thử khác thay vì thay thế âm thầm bằng chứng của bản báo cáo. Script không dùng webcam, không đo AI, không chạy scheduler qua lifespan và không thực hiện kiểm thử tải.
+
+\section*{D.3. Các mục nhóm cần hoàn thiện trước khi nộp}
+{\small
+\begin{enumerate}[itemsep=2pt,topsep=3pt]
+\item Điền tên hai thành viên, MSSV, lớp, giảng viên, năm học và kiểm tra thông tin học phần trong \src{thong-tin.tex}.
+\item Xác nhận lời cam đoan và lời cảm ơn; bổ sung phân công thực tế cùng minh chứng đóng góp.
+\item Nếu bổ sung thực nghiệm camera, ghi rõ cách thu dữ liệu, thiết bị, nhãn chuẩn và kết quả; không điền số ước lượng vào bảng chưa đo.
+\item Nếu mã dự án đã đổi sau commit khảo sát, cập nhật phần mô tả liên quan và chạy lại các kiểm thử cần thiết.
+\item Biên dịch bằng XeLaTeX, kiểm tra mục lục và các dấu tham chiếu trước khi xuất bản nộp.
+\end{enumerate}
+}
+
+\clearpage
+\section*{E. Vận hành web Android/iOS bằng tunnel}
+\addcontentsline{toc}{section}{E. Vận hành web Android/iOS bằng tunnel}
+Chạy các lệnh từ thư mục dự án trên Windows. Build lại frontend khi mã giao diện thay đổi; khởi động lại backend nếu dist chưa tồn tại lúc dịch vụ khởi chạy.
+\begin{lstlisting}[language=bash,caption={Build frontend}]
+cd frontend
+npm ci
+npm run build
+\end{lstlisting}
+Mở terminal thứ hai, từ thư mục gốc dự án; dùng môi trường Python đã cài requirements của backend.
+\begin{lstlisting}[language=bash,caption={Chạy FastAPI và phục vụ frontend/dist}]
+cd backend
+.venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8000
+\end{lstlisting}
+Mở terminal thứ ba; cài cloudflared một lần nếu máy chưa có, sau đó chạy tunnel.
+\begin{lstlisting}[language=bash,caption={Cấp đường dẫn HTTPS cho thiết bị ngoài laptop}]
+winget install --id Cloudflare.cloudflared
+cloudflared tunnel --url http://localhost:8000
+\end{lstlisting}
+Sao chép địa chỉ HTTPS được in ra để sinh viên mở trên Chrome Android hoặc Safari iOS. Giảng viên dùng cùng URL hoặc localhost trên laptop. Giữ laptop, backend và tunnel hoạt động trong buổi thi; URL quick tunnel có thể đổi khi khởi chạy lại. Đặt PROCTOR\_API\_TOKEN trước khi mở truy cập công khai và không gửi token này cho sinh viên.
+
+Trên iOS, có thể thêm trang vào Màn hình chính từ menu Chia sẻ. Khi tunnel đổi URL, mở link mới và tạo lại lối tắt nếu cần. Kiểm tra quyền camera, tải mô hình, thời gian còn lại, một sự kiện thử và bài nộp mẫu trước ca thi. Kênh APK dùng chung API nhưng hướng dẫn build phải bổ sung từ đúng nguồn Android đã sử dụng; không áp dụng lệnh build web như thể tự tạo ra APK.
+
+\clearpage
+\section*{F. Bản đồ mã nguồn cho phần mở rộng}
+\addcontentsline{toc}{section}{F. Bản đồ mã nguồn cho phần mở rộng}
+\begin{longtable}{@{}L{6cm}L{9cm}@{}}
+\toprule Tệp & Nội dung đối chiếu \\\midrule
+\src{MOBILE.md} & Luồng tunnel, PWA, giới hạn thiết bị.\\
+\src{frontend/src/config.js} & API base và nhận diện mobile.\\
+\src{frontend/public/manifest.webmanifest} & Tên, biểu tượng và chế độ ứng dụng web.\\
+\src{frontend/src/components/StudentExam.jsx} & Camera, CPU fallback, 500 ms, start, callback sự kiện.\\
+\src{frontend/src/hooks/useBrowserLockdown.js} & Gộp sự kiện rời trang trong 1,5 giây.\\
+\src{backend/main.py} & Phục vụ dist và SPA fallback; API sự kiện.\\
+\src{backend/exams_router.py} & API start, tính thời gian còn lại, sao chép started\_at khi nộp.\\
+\src{backend/database.py} & ExamStart và ràng buộc UNIQUE.\\
+\bottomrule
+\end{longtable}
+
+\section*{G. Tái lập các kiểm thử của bản cập nhật}
+\addcontentsline{toc}{section}{G. Tái lập các kiểm thử của bản cập nhật}
+Các tệp evidence không có hậu tố current/mobile là bằng chứng lịch sử của báo cáo gốc. Đối chiếu lần cập nhật bằng source-manifest-current.json, results-current.json, results-mobile.json và các log tương ứng. Hai script đều tạo dữ liệu tạm, không dùng CSDL vận hành.
+\begin{lstlisting}[language=bash]
+python code/verify_mobile.py --backend /path/to/repo/backend \
+  --output /tmp/edushield-mobile-results.json
+\end{lstlisting}

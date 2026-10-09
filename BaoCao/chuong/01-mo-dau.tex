@@ -1,0 +1,43 @@
+\chapter{Mở đầu}
+\section{Bối cảnh và lý do chọn đề tài}
+Thi trực tuyến giúp tổ chức đánh giá mà không yêu cầu mọi thí sinh có mặt tại cùng một địa điểm. Tuy nhiên, quy trình này đòi hỏi giải quyết đồng thời nhiều vấn đề: phân phối đề đúng đối tượng, quản lý thời gian, ghi nhận câu trả lời, tính điểm và cung cấp thông tin để giảng viên xem xét các tình huống bất thường. Khi những công việc này nằm ở các công cụ riêng lẻ, việc tổng hợp kết quả và truy vết sự kiện trở nên khó khăn.
+
+Camera trên thiết bị của sinh viên có thể cung cấp tín hiệu hỗ trợ như sự hiện diện của khuôn mặt, sự xuất hiện của nhiều người hoặc điện thoại trong khung hình. Dù vậy, các tín hiệu này không tự chứng minh hành vi gian lận. Một sinh viên quay đầu do tiếng động hoặc môi trường thiếu sáng có thể bị gắn cờ dù không vi phạm quy chế. Vì thế, vai trò phù hợp của AI trong đề tài là phát hiện tình huống cần xem xét, giảm khối lượng quan sát thủ công và cung cấp ảnh minh chứng cho giảng viên.
+
+EduShield AI được phát triển theo hướng tích hợp chức năng thi trắc nghiệm và giám sát hỗ trợ trong một ứng dụng web hỗ trợ PC và thiết bị di động. Đề tài lựa chọn suy luận ngay trong trình duyệt để tận dụng thiết bị của thí sinh và hạn chế việc phải truyền video liên tục về máy chủ. Máy chủ tập trung vào dữ liệu nghiệp vụ, ảnh sự kiện, chấm điểm và cung cấp API quản lý.
+
+\section{Phát biểu bài toán}
+Đầu vào của hệ thống gồm bộ câu hỏi trắc nghiệm được soạn theo mẫu, cấu hình đề thi, thông tin sinh viên, các lựa chọn trả lời và khung hình từ camera. Đầu ra gồm đề thi được công bố, điểm số, lịch sử nộp bài, sự kiện nghi vấn và ảnh minh chứng khi có thể chụp được.
+
+Bài toán được chia thành hai luồng liên quan. Luồng đánh giá học tập phải giữ đáp án đúng ở máy chủ, chấm điểm nhất quán và hạn chế nộp lặp. Luồng giám sát phải chuyển dữ liệu hình ảnh thành các nhãn sự kiện dễ hiểu, giới hạn tần suất ghi nhận, quản lý thời gian và cho phép giảng viên tra cứu. Hai luồng hiện được đối chiếu chủ yếu qua mã sinh viên; đây là một giới hạn thiết kế được phân tích ở các chương sau.
+
+\section{Mục tiêu của đề tài}
+\subsection{Mục tiêu tổng quát}
+Xây dựng nguyên mẫu hệ thống thi trực tuyến có khả năng quản lý đề trắc nghiệm, chấm điểm trên máy chủ và hỗ trợ giám sát bằng thị giác máy tính, với giao diện riêng cho sinh viên và giảng viên.
+
+\subsection{Mục tiêu cụ thể}
+\begin{enumerate}
+\item Tổ chức quy trình tạo đề từ tệp, xem trước, công bố và cung cấp mã đề cho sinh viên.
+\item Cung cấp giao diện làm bài, bộ đếm thời gian và thao tác nộp bài, đồng thời trả kết quả chấm điểm tự động.
+\item Tích hợp mô hình có sẵn để phát hiện khuôn mặt và điện thoại; xây dựng các quy tắc cho trường hợp không có mặt, nhiều mặt, quay đầu kéo dài và khung hình tối.
+\item Ghi nhận sự kiện với thời điểm, mã sinh viên và ảnh thu nhỏ; cung cấp màn hình tổng quan và tra cứu cho giảng viên.
+\item Mở rộng thi trên Android và iOS qua HTTPS, dùng chung dữ liệu với web giảng viên; phân biệt kênh APK Android với Safari/PWA trên iPhone.
+\item Kiểm tra các hành vi chức năng quan trọng và xác định những giới hạn trước khi triển khai rộng hơn.
+\end{enumerate}
+
+\section{Đối tượng và phạm vi}
+Đối tượng sử dụng chính là sinh viên làm bài trắc nghiệm và giảng viên quản lý đề, theo dõi sự kiện, xem kết quả. Máy khách cần trình duyệt hỗ trợ camera và các thành phần MediaPipe. Hệ thống hiện không tích hợp cơ sở dữ liệu đào tạo để xác thực mã sinh viên, không đối chiếu khuôn mặt với giấy tờ hoặc hồ sơ và không triển khai cơ chế đăng nhập tài khoản cá nhân đầy đủ.
+
+Phạm vi nội dung thi là câu hỏi một đáp án đúng trong bốn phương án A, B, C, D. Bộ phân tích tệp đọc nội dung văn bản theo khuôn dạng quy định; không được mô tả như một công cụ hiểu mọi bố cục Word, nhận dạng chữ trong ảnh hoặc chuyển đổi tự do đề thi có công thức phức tạp. Phạm vi giám sát là dữ liệu nhìn thấy trong khung hình và một số sự kiện của trình duyệt, không bao gồm toàn bộ hoạt động trên thiết bị.
+
+Báo cáo khảo sát mã nguồn công khai tại commit đã chốt \cite{repo}. Không sử dụng dữ liệu điểm thực tế hay ảnh khuôn mặt của sinh viên làm dữ liệu đánh giá. Những ảnh giao diện đã trao đổi trước đó chỉ thể hiện yêu cầu thiết kế; chúng không được dùng để khẳng định hành vi của phiên bản mã nguồn đang khảo sát.
+
+\section{Phương pháp thực hiện và kiểm chứng}
+Phương pháp phân tích bắt đầu từ việc truy vết luồng dữ liệu giữa các thành phần giao diện, các tuyến API, mô hình dữ liệu và tác vụ nền. Những hằng số hoặc điều kiện quan trọng được đối chiếu trực tiếp với mã: chu kỳ suy luận, ngưỡng cảnh báo, giới hạn tệp, quy tắc chấm điểm và chính sách dọn ảnh.
+
+Phương pháp thực nghiệm sử dụng bộ dữ liệu tổng hợp nhỏ để kiểm thử bộ nhập đề và API bằng FastAPI TestClient. Cơ sở dữ liệu được tạo trong thư mục tạm để tránh ảnh hưởng dữ liệu dự án. Kết quả kiểm thử được lưu dưới dạng JSON và nhật ký, đi kèm mã tái lập trong bộ nguồn báo cáo. Phương pháp này phù hợp xác nhận logic nghiệp vụ, nhưng chưa đo hiệu năng trình duyệt hoặc độ chính xác của mô hình trên camera.
+
+\section{Đóng góp và bố cục báo cáo}
+Đóng góp của dự án nằm ở việc tích hợp mô hình thị giác có sẵn với quy trình thi, xây dựng các quy tắc biến đầu ra mô hình thành sự kiện, thiết kế API và lưu trữ phục vụ giám sát, cùng với giao diện thao tác cho hai vai trò. Dự án không công bố một kiến trúc mạng nơ-ron mới hoặc một mô hình do nhóm tự huấn luyện.
+
+Báo cáo gồm sáu chương. Chương 1 xác định bài toán và phạm vi. Chương 2 trình bày cơ sở kỹ thuật. Chương 3 phân tích yêu cầu, kiến trúc và dữ liệu. Chương 4 mô tả cài đặt từ mã nguồn. Chương 5 báo cáo kết quả kiểm thử, hạn chế và kế hoạch thực nghiệm. Chương 6 tổng kết và đề xuất lộ trình phát triển. Phụ lục cung cấp danh mục API, hướng dẫn vận hành, định dạng đề và chỉ dẫn tái lập.

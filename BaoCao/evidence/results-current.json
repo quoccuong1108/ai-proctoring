@@ -1,0 +1,87 @@
+[
+  {
+    "case": "P01 Excel hợp lệ",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "P02 Loại câu trùng",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "P03 Bỏ câu thiếu đáp án",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "P04 Từ chối vượt 200 câu",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "P05 Word hợp lệ",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "P06 Từ chối định dạng khác",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A01 API quản lý cần token",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A02 Tạo đề nháp",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A03 Đề nháp không được lấy",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A04 Công bố đề",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A05 Không lộ đáp án đúng",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A06 Chấm đúng 5 trên 10",
+    "passed": true,
+    "detail": "{\"total_score\":5.0,\"correct_count\":1,\"total_questions\":2,\"pass_score\":5.0,\"passed\":true,\"status\":\"SUBMITTED\"}"
+  },
+  {
+    "case": "A07 Chặn nộp trùng",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A08 Xuất Excel",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A09 Chuẩn hóa UTC",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A10 Nhãn vi phạm không hợp lệ",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "case": "A11 Ảnh yêu cầu token",
+    "passed": true,
+    "detail": ""
+  }
+]

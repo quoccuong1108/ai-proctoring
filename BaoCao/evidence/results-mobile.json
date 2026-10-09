@@ -1,0 +1,46 @@
+[
+  {
+    "case": "M01 /start từ chối đề nháp",
+    "passed": true
+  },
+  {
+    "case": "M02 Bắt đầu ghi giờ server",
+    "passed": true
+  },
+  {
+    "case": "M03 Gọi lại không tạo mốc mới",
+    "passed": true
+  },
+  {
+    "case": "M04 Thời gian còn lại giảm theo mốc cũ",
+    "passed": true
+  },
+  {
+    "case": "M05 Quá thời lượng trả 0",
+    "passed": true
+  },
+  {
+    "case": "M06 Xác nhận giới hạn: vẫn nhận bài quá hạn",
+    "passed": true
+  },
+  {
+    "case": "M07 started_at được chép vào bài nộp",
+    "passed": true
+  },
+  {
+    "case": "M08 Đã nộp không được bắt đầu lại",
+    "passed": true
+  },
+  {
+    "case": "M09 Nhận nhãn TAB_SWITCH không cần ảnh",
+    "passed": true
+  },
+  {
+    "case": "M10 Mã đề không tồn tại trả 404",
+    "passed": true
+  },
+  {
+    "case": "M11 Xác nhận giới hạn: submit không bắt buộc start",
+    "passed": true
+  }
+]

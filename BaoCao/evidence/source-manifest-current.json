@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/GBinh02/AI-Protoring",
+  "commit": "97a11fea3ed322e3c05eec84a3ff43acea11e51e",
+  "review_date": "2026-10-01",
+  "files": {
+    "MOBILE.md": "b052cfd268374f1b696d6e89e0a9220d12d7097fbe8d41719b6fa8f17bd622cd",
+    "UI_REDESIGN.md": "94a3d3c9dda9f714accffc4008a72c710fe2def341b1ddedb77ff1361f459991",
+    "frontend/package.json": "642931d6213b05400c9dc0fdd8917ac0298daf75e092de77d03a8906c31a9ddf",
+    "frontend/README.md": "1f8fa46483b514305f44e34a47e85e88428c3a667c9494e1583628ef18d7bc79",
+    "frontend/.oxlintrc.json": "1be899e45c49b2a2edc715bc3bfb31d8ed8e866ed7ebab2065ff6e55e88c2396",
+    "frontend/vite.config.js": "07ab46c2a186cdcba865e38a670adb507f87311dea5a084694e27276f1cfbb9f",
+    "frontend/package-lock.json": "3cdeb26dc1def702ea284e954c8f08bb09452b47b61ffb1b8f2734d1fc4cd827",
+    "backend/exam_parser.py": "4de3ed60e4cf6892e5a63f5aa3b70f0464661b944c21275c1a9a468265a549b7",
+    "backend/scheduler.py": "38d88ee0900950c99647e89b10745238e1266fb5d5799d43f17bef0ada9de04c",
+    "backend/main.py": "3321494121b8e400caf06d3376a572875077a35ba51acf9ea07673a3149852bd",
+    "backend/database.py": "d55d0bde81cc10b46b03482b5a5d9ba053fb9dc1211274a8704542555d8ab615",
+    "backend/exams_router.py": "353a3928ad4ccf8de797a9ba8b0c032a664ede0f9b7cc59950a19c40fcf94b38",
+    "backend/auth.py": "923c92be1ff71d589b3f7f9c24a12643b672b71299fa689870e4cab732b38a93",
+    "frontend/src/App.jsx": "0dd0f83d3295c8bf1a7ed0e562353ed04a3d83dc01186df87069b84db7623005",
+    "frontend/src/config.js": "3be48524edfca11597f14dc9aaf851ba4167353e7aa1862e73f093b01cbb25ac",
+    "frontend/src/main.jsx": "6d4e35b8e63aa01103528c259b47c5ad292672f08946e97c818b84df9ad32490",
+    "frontend/public/manifest.webmanifest": "7546a9f9f14dff792622d5922e67d3cbb747d0d0dcae60becb5d3928c57a766a",
+    "frontend/src/components/StudentGateway.jsx": "1c0e860f03bfdfe543029ddb0bd88d58517fe0a2e9715fe4191dc40785bdde16",
+    "frontend/src/components/ProctorDashboard.jsx": "1f6e3c58077d2fcbe9337a651379bd0ca0ef15c135808b6fddcce971bb6130fa",
+    "frontend/src/components/ModalShell.jsx": "ef439ecd8486ef415d9ed939c559e04b8345a2feb1c7c55a88f4b2a7fb6789df",
+    "frontend/src/components/ExamManagement.jsx": "74875ce08088e79d697b70f9e6554f5f4c2b03f61ab73aa52be8d890520ee2e5",
+    "frontend/src/components/StudentExam.jsx": "e8955f94e9220787256740549f4675ffe488877e5ae9558100a5e277cd2fe5ad",
+    "frontend/src/hooks/useBrowserLockdown.js": "df6b6d5727a54ce898ad3eb28bbd7e3d83f1691fb9b03916765f5047ff0b5b52"
+  },
+  "apk_note": "Author reports working APK; native build sources absent in inspected main."
+}

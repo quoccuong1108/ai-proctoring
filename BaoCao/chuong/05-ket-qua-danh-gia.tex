@@ -1,0 +1,150 @@
+\chapter{Kết quả kiểm thử và đánh giá}
+\markboth{Chương 5. Kiểm thử và đánh giá}{}
+\section{Phạm vi bằng chứng}
+Kết quả của chương này gồm hai nguồn: phân tích tĩnh mã nguồn tại commit \texttt{97a11fe} và chạy 17 ca kiểm thử chức năng trên dữ liệu tổng hợp. Tác giả xác nhận các kênh web, APK Android và iOS hoạt động tốt. Lần biên soạn này không trực tiếp thao tác thiết bị thật và không có bộ dữ liệu ảnh gán nhãn hoặc phép đo tải nhiều máy; xác nhận vận hành được tách khỏi kiểm thử tự động. Do đó, những nhận xét về chức năng có mã triển khai được tách khỏi những kết luận đã có bằng chứng chạy thực tế.
+
+Các phép thử được thực hiện bằng Python 3.12.14, FastAPI TestClient, SQLite và các thư viện nhập tệp. Ứng dụng được nạp từ mã nguồn đã tải về; \src{PROCTOR_API_TOKEN} được đặt thành giá trị riêng cho fixture. Thư mục làm việc được chuyển sang một thư mục tạm trước khi khởi tạo CSDL. Không có bài thi hoặc thông tin cá nhân thực được sử dụng.
+
+TestClient trong bộ thử không được mở bằng context manager chạy lifespan, do đó không kiểm thử việc khởi động bộ lập lịch nền. Bộ thử cũng không khởi tạo trình duyệt, webcam hoặc mô hình MediaPipe. Cấu hình này phù hợp kiểm tra bộ phân tích và API nhưng giới hạn rõ ràng điều có thể kết luận.
+
+\section{Dữ liệu và quy trình kiểm thử}
+Bộ Excel cơ sở gồm hai câu hỏi với bốn phương án mỗi câu, đáp án đúng lần lượt là A và B. Một biến thể lặp câu đầu để kiểm tra loại trùng; một biến thể thêm câu thiếu phương án; một tệp chứa 201 câu để kiểm tra giới hạn. Bộ Word gồm sáu đoạn văn cho một câu hỏi đúng định dạng.
+
+Luồng API sử dụng mã đề \texttt{DE-TEST} và mã sinh viên giả \texttt{SV-TEST}. Sau khi tạo đề nháp, bộ thử xác nhận sinh viên chưa thể lấy đề. Đề được công bố với thời lượng 10 phút và điểm đạt 5. Sinh viên trả lời A cho cả hai câu, nên kết quả mong đợi là một câu đúng trên hai câu, tương đương 5 điểm. Cuối cùng, bộ thử kiểm tra nộp lặp, xuất Excel và một số hành vi lưu sự kiện.
+
+Kết quả từng phép thử được ghi bằng điều kiện assert tương ứng; nếu một điều kiện sai, chương trình dừng với lỗi. Tệp JSON đi kèm lưu tên ca, trạng thái đạt và nội dung chi tiết khi cần. Cách kiểm thử này không có đo thời gian phản hồi nên báo cáo không đưa ra số liệu mili giây hoặc số yêu cầu mỗi giây.
+
+\section{Kết quả kiểm thử chức năng}
+\begin{longtable}{@{}L{1cm}L{5cm}L{7.2cm}L{1.3cm}@{}}
+\caption{Kết quả 17 ca kiểm thử đã thực hiện}\label{tab:tests}\\
+\toprule Mã & Tình huống & Điều kiện được xác nhận & KQ \\\midrule\endfirsthead
+\toprule Mã & Tình huống & Điều kiện được xác nhận & KQ \\\midrule\endhead
+P01 & Excel đúng định dạng & Bộ phân tích trả 2 câu hợp lệ. & Đạt\\
+P02 & Thêm câu trùng & Số câu hợp lệ vẫn là 2. & Đạt\\
+P03 & Thêm câu thiếu lựa chọn & Câu lỗi bị bỏ; còn 2 câu hợp lệ. & Đạt\\
+P04 & Tệp có 201 câu & Số câu hợp lệ trả về bằng 0. & Đạt\\
+P05 & Word theo mẫu sáu dòng & Bộ phân tích trả 1 câu hợp lệ. & Đạt\\
+P06 & Tệp đuôi TXT & Không nhận câu hợp lệ. & Đạt\\
+A01 & Lấy danh sách đề thiếu token & HTTP 401. & Đạt\\
+A02 & Upload đề hợp lệ có token & HTTP 200 và trạng thái DRAFT. & Đạt\\
+A03 & Lấy đề khi còn nháp & HTTP 403. & Đạt\\
+A04 & Công bố đề & HTTP 200. & Đạt\\
+A05 & Sinh viên lấy đề & HTTP 200; mọi câu đều không chứa correct\_option. & Đạt\\
+A06 & Đúng một trong hai câu & HTTP 200; total\_score bằng 5. & Đạt\\
+A07 & Nộp lại cùng sinh viên, đề & HTTP 409. & Đạt\\
+A08 & Xuất kết quả Excel & Endpoint trả HTTP 200. & Đạt\\
+A09 & Sự kiện lúc 14:00 UTC+7 & HTTP 201; thời gian trả về bắt đầu bằng 07:00 UTC cùng ngày. & Đạt\\
+A10 & Loại sự kiện UNKNOWN & HTTP 400. & Đạt\\
+A11 & Đọc đường dẫn ảnh thiếu token & HTTP 401 trước khi phục vụ ảnh. & Đạt\\
+\bottomrule
+\end{longtable}
+
+Tổng hợp: \textbf{17/17 ca trong bộ thử đạt}. Đây là tỷ lệ của bộ thử hữu hạn được lựa chọn, không phải độ bao phủ toàn bộ nhánh mã hoặc tỷ lệ lỗi bằng không của hệ thống. Ca A07 là nộp tuần tự, chưa mô phỏng hai yêu cầu thực sự đồng thời. Ca A08 chỉ xác nhận endpoint trả thành công, chưa đối chiếu từng ô trong workbook. Ca A11 dùng đường dẫn ảnh không tồn tại để kiểm tra lớp xác thực đi trước việc phục vụ tệp, chưa xác nhận một ảnh hợp lệ hiển thị thành công trên trình duyệt.
+
+\section{Các kết quả tích cực có căn cứ}
+\subsection{Quy trình đề và điểm số}
+Các ca P01--P06 cho thấy bộ phân tích hoạt động đúng với một số cấu trúc đầu vào đã chọn, bao gồm dữ liệu lỗi và giới hạn số câu. Chuỗi A02--A06 chứng minh một luồng tạo nháp, chặn lấy sớm, công bố, lấy đề và chấm điểm có thể thực thi qua API. Đáp án đúng không xuất hiện trong phản hồi lấy đề của ca A05.
+
+Việc chấm lại từ câu hỏi trong CSDL thay vì nhận tổng điểm từ trình duyệt là điểm tích cực của thiết kế. Ràng buộc duy nhất trên bản nộp bổ sung một tầng bảo vệ dữ liệu; phép thử nộp lặp xác nhận đường xử lý xung đột tuần tự. Cần bổ sung thử tranh chấp đồng thời để xác nhận hành vi dưới tải và điều kiện khóa SQLite.
+
+\subsection{Truy cập dữ liệu và thời gian}
+Các tuyến quản lý và ảnh có kiểm tra token ở backend. Ca A01 và A11 xác nhận hai đường truy cập bị chặn khi thiếu token. Ca A09 xác nhận một thời điểm có độ lệch UTC+7 được chuẩn hóa đúng ở luồng tạo sự kiện. Đây là bằng chứng hẹp nhưng hữu ích cho vấn đề thời gian từng được sửa trong commit khảo sát.
+
+Cơ chế tách metadata và ảnh cho phép giữ lịch sử ngay cả khi ảnh hết hạn. Việc này có lợi cho thống kê, đồng thời đòi hỏi giao diện phân biệt bản ghi còn ảnh và bản ghi chỉ còn thông tin. Khi xem xét một trường hợp, giảng viên cần biết giới hạn của bằng chứng còn lưu.
+
+\section{Các hạn chế và tác động}
+\begin{longtable}{@{}L{1cm}L{5.2cm}L{8.3cm}@{}}
+\caption{Hạn chế xác định từ mã nguồn và mức ưu tiên xử lý}\\
+\toprule Mã & Hạn chế & Tác động và hướng xử lý \\\midrule\endfirsthead
+\toprule Mã & Hạn chế & Tác động và hướng xử lý \\\midrule\endhead
+H01 & Mã sinh viên tự khai; chưa có phiên xác thực cá nhân. & Có thể gán dữ liệu cho mã khác. Ưu tiên bổ sung tài khoản hoặc vé vào thi do máy chủ cấp.\\
+H02 & Timer và cờ tự nộp phụ thuộc máy khách; đã lưu bắt đầu nhưng submit chưa cưỡng chế deadline. & Không bảo đảm hạn nộp. Cần kiểm tra mốc bắt đầu, deadline tại API nộp và hạn chế fallback cấp lại giờ.\\
+H03 & Sự kiện không có exam\_id/session\_id. & Có thể cộng nhầm sự kiện giữa các bài thi. Cần liên kết khóa ngoại với phiên thi.\\
+H04 & Chuyển tab đã có đường gửi server; gửi lỗi chưa retry bền vững. & Cần kiểm thử đầu cuối trên thiết bị và khi chuyển ứng dụng/mất mạng.\\
+H05 & Gửi sự kiện chưa có hàng đợi bền vững. & Mất mạng có thể mất bản ghi. Cần định danh sự kiện, retry có kiểm soát và chống ghi trùng.\\
+H06 & Ngưỡng hình học, độ sáng chưa hiệu chuẩn. & Báo nhầm hoặc bỏ sót theo thiết bị, ánh sáng, tư thế. Cần dữ liệu đánh giá và chọn ngưỡng độc lập.\\
+H07 & Token giảng viên dùng chung, có thể sinh và ghi log. & Khó phân quyền, quy trách nhiệm và thu hồi riêng. Cần quản lý tài khoản, phiên và bí mật phù hợp.\\
+H08 & Tuổi ảnh dựa trên thời gian máy khách. & Chính sách lưu có thể lệch. Cần mốc tiếp nhận phía máy chủ và kiểm tra độ lệch.\\
+H09 & Vòng đời camera/timer sau nộp cần kiểm chứng. & Có thể tiếp tục dùng tài nguyên hoặc ghi sự kiện sau bài thi. Cần điều kiện kết thúc và kiểm thử trình duyệt.\\
+H10 & Không có migration CSDL có phiên bản. & Cập nhật mô hình có thể không nâng bảng cũ. Cần kế hoạch migration và kiểm thử khôi phục.\\
+H11 & Tài nguyên WASM dùng đường dẫn latest. & Khó tái lập và có thể lệch phiên bản gói. Cần khóa phiên bản hoặc tự phục vụ tài nguyên.\\
+H12 & Danh sách giới hạn và thống kê tổng khác phạm vi. & Người dùng có thể hiểu nhầm số liệu. Cần phân trang rõ và thông báo bộ lọc đang áp dụng.\\
+\bottomrule
+\end{longtable}
+
+Đây là các giới hạn cần ưu tiên theo mục đích sử dụng, không phải khẳng định đã có sự cố khai thác trong thực tế. Với một buổi trình diễn đồ án, có thể kiểm soát môi trường và giải thích giới hạn. Với kỳ thi có hậu quả học vụ, cần hoàn thiện định danh, phiên thi, giao nhận sự kiện và quy trình con người xem xét trước khi dựa vào dữ liệu để ra quyết định.
+
+\section{Kế hoạch thực nghiệm AI đề xuất}
+\subsection{Thiết kế bộ dữ liệu}
+Nên thu các đoạn video ngắn có sự đồng ý của người tham gia, gồm trạng thái bình thường và từng tình huống: rời khung hình, thêm người, đưa điện thoại vào vùng nhìn, quay đầu và che camera. Mỗi loại cần nhiều điều kiện ánh sáng, khoảng cách, góc đặt máy và thiết bị. Cần có các trường hợp khó như cầm vật giống điện thoại, quay đầu ngắn để nghe âm thanh hoặc phòng tối nhưng không che camera.
+
+Đơn vị dữ liệu nên là đoạn hoặc khoảng sự kiện, có thời điểm bắt đầu và kết thúc được người gán nhãn xác nhận. Không chia ngẫu nhiên các khung hình liền kề của cùng một video vào cả tập hiệu chỉnh và tập kiểm tra vì sẽ tạo tương đồng quá lớn. Nên tách theo người hoặc phiên quay để đánh giá khả năng hoạt động trên trường hợp chưa thấy.
+
+Ngưỡng cần được hiệu chỉnh trên một tập riêng, sau đó cố định trước khi chạy tập kiểm tra. Do dự án dùng mô hình có sẵn, bước này là hiệu chỉnh hệ thống quyết định, không nên gọi là huấn luyện lại mạng nếu không thực hiện cập nhật trọng số.
+
+\subsection{Chỉ số và bảng ghi kết quả}
+Cần báo cáo precision, recall và F1 theo từng loại; số cảnh báo nhầm mỗi giờ trong phiên bình thường; độ trễ từ lúc sự kiện bắt đầu đến lần ghi đầu tiên. Với thứ tự ưu tiên hiện tại, cần thêm nhóm tình huống nhiều dấu hiệu đồng thời để quan sát nhãn bị che. Các mẫu số bằng không phải được xử lý minh bạch, không tự thay bằng điểm hoàn hảo.
+
+\begin{table}[htbp]
+\centering
+\caption{Biểu mẫu thực nghiệm AI -- chưa có số liệu đo}
+\begin{tabularx}{\textwidth}{@{}Xcccc@{}}\toprule
+Loại & Precision & Recall & F1 & Trễ p95 \\\midrule
+Không có mặt & -- & -- & -- & --\\
+Nhiều khuôn mặt & -- & -- & -- & --\\
+Điện thoại & -- & -- & -- & --\\
+Quay đầu & -- & -- & -- & --\\
+Khung hình tối & -- & -- & -- & --\\\bottomrule
+\end{tabularx}
+\end{table}
+
+Dấu ``--'' thể hiện chưa đo, không phải giá trị bằng 0. Khi điền bảng cần kèm số mẫu, thiết bị, phiên bản mô hình, cách ghép cảnh báo với khoảng nhãn chuẩn và quy tắc chấp nhận độ trễ. Nếu chỉ báo một tỷ lệ tổng, số lượng khung hình bình thường lớn có thể che khuất khả năng bỏ sót các sự kiện hiếm.
+
+\section{Kế hoạch kiểm thử tích hợp và hiệu năng}
+Các ca tích hợp tiếp theo nên bao gồm cấp/từ chối quyền camera, mất mạng rồi kết nối lại, CDN mô hình không tải được, nộp bài khi gần hết giờ, rời trang trong lúc gửi bài, nhận kết quả rồi xác nhận camera đã dừng. Cần quan sát cả màn hình sinh viên, dữ liệu máy chủ và màn hình giảng viên để phát hiện sai lệch giữa các tầng.
+
+Về tải, có thể tăng dần số máy khách giả lập cho các API đọc và ghi, ghi nhận p50/p95 thời gian phản hồi, tỷ lệ lỗi, thời gian chờ khóa và kích thước CSDL. Suy luận AI chạy trên thiết bị sinh viên nên thử tải HTTP không phản ánh được độ mượt camera; phần này phải đo trên thiết bị mục tiêu. Không đưa ra cam kết số sinh viên đồng thời trước khi có cấu hình phần cứng, kịch bản và kết quả.
+
+Về giao diện, cần kiểm tra câu hỏi và phương án dài, màn hình nhỏ, mức phóng đại chữ và vị trí hộp cảnh báo. Tiêu chí nghiệm thu nên cụ thể: người dùng thấy trạng thái camera và điều khiển chính; nội dung không bị cắt; khu vực cuộn rõ ràng; focus bàn phím không bị mắc trong hộp thoại. Các thử nghiệm này chưa được thực hiện trong bộ 17 ca backend.
+
+\section{Riêng tư, công bằng và vai trò giảng viên}
+Ảnh khuôn mặt và lịch sử hành vi là dữ liệu có thể gây ảnh hưởng đến người học. Hệ thống cần thông báo rõ mục đích, loại dữ liệu, người được xem và thời hạn lưu trước khi bắt đầu. Cơ chế dọn ảnh là một thành phần kỹ thuật của quản lý dữ liệu, không tự bảo đảm đầy đủ quy trình tổ chức hoặc tuân thủ pháp lý.
+
+Các điều kiện ánh sáng, camera, kính, tư thế và đặc điểm cá nhân có thể làm chất lượng nhận diện khác nhau. Thực nghiệm nên ghi nhận các yếu tố liên quan mà không thu thập thông tin nhạy cảm vượt quá nhu cầu. Cần có cách xử lý khi thiết bị không đáp ứng hoặc cảnh báo bị đánh giá sai, thay vì tự động trừ điểm dựa trên nhãn AI.
+
+Báo cáo đề xuất xem mỗi sự kiện là một yêu cầu xem xét. Giảng viên đối chiếu ảnh, thời gian, bối cảnh và phản hồi của sinh viên trước khi kết luận. Điểm học tập do đáp án trắc nghiệm quyết định; mã nguồn hiện tại không thể hiện cơ chế tự động khấu trừ điểm theo số cảnh báo, và báo cáo không bổ sung một quy chế như vậy.
+
+\section{Kiểm chứng phần mở rộng đa thiết bị ngày 01/10/2026}
+Bộ 17 ca cũ được chạy lại với commit \texttt{97a11fe} và đều đạt. Bổ sung 11 ca API tập trung vào mốc bắt đầu, tiếp tục thời gian, dữ liệu nộp và sự kiện trình duyệt; cả 11 ca đạt điều kiện kiểm tra. Kết quả tại \src{evidence/results-current.json} và \src{evidence/results-mobile.json}. Hai ca xác nhận giới hạn hiện hữu có kết quả ``đạt'' nghĩa là tái hiện đúng hành vi, không có nghĩa hệ thống đã đáp ứng yêu cầu cưỡng chế thời gian.
+\begin{longtable}{@{}L{1cm}L{10.7cm}L{2.9cm}@{}}
+\caption{Kiểm thử API bổ sung cho bản đa thiết bị}\\
+\toprule Mã & Hành vi / điều kiện kiểm tra & Kết quả \\\midrule\endfirsthead
+\toprule Mã & Hành vi / điều kiện kiểm tra & Kết quả \\\midrule\endhead
+M01 & start từ chối đề nháp (403). & Đạt\\
+M02 & Lần bắt đầu đầu tiên trả mốc UTC và thời gian gần đủ. & Đạt\\
+M03 & Gọi lại giữ mốc cũ, chỉ một hàng exam\_starts. & Đạt\\
+M04 & Mốc bắt đầu lùi 120 giây làm giảm thời gian còn lại tương ứng. & Đạt\\
+M05 & Đã quá thời lượng thì remaining\_seconds bằng 0. & Đạt\\
+M06 & Xác nhận giới hạn: submit vẫn nhận bài đã quá thời lượng. & Tái hiện\\
+M07 & started\_at được sao chép từ exam\_starts vào bài nộp. & Đạt\\
+M08 & Đã nộp thì gọi start trả 409. & Đạt\\
+M09 & Backend nhận TAB\_SWITCH không kèm ảnh (201). & Đạt\\
+M10 & Mã đề không tồn tại trả 404. & Đạt\\
+M11 & Xác nhận giới hạn: có thể submit không gọi start trước. & Tái hiện\\
+\bottomrule
+\end{longtable}
+Các phép thử dùng SQLite tạm và dữ liệu tổng hợp; không sửa dữ liệu vận hành. Chúng không đo camera, WebView APK, Safari, Cloudflare Tunnel hoặc khả năng chịu tải. Kết quả M09 xác nhận API nhận nhãn, không thay thế thao tác chuyển ứng dụng trên điện thoại thật.
+
+\subsection{Ma trận nghiệm thu trên thiết bị thật}
+Tác giả xác nhận hệ thống hoạt động tốt trên các kênh đã triển khai. Để biến xác nhận này thành hồ sơ nghiệm thu có thể tái lập, cần ghi model thiết bị, phiên bản OS/trình duyệt hoặc APK, ngày chạy, đường dẫn build và kết quả từng bước. Các mục dưới đây là danh sách kiểm tra bổ sung, không gán số liệu chưa đo.
+\begin{longtable}{@{}L{3cm}L{8.2cm}L{3.4cm}@{}}
+\toprule Nhóm & Thao tác và tiêu chí & Bằng chứng cần bổ sung \\\midrule
+Web PC & Mở tunnel, làm bài, nộp và đối chiếu điểm trên web giảng viên. & OS, browser, ảnh kết quả.\\
+Android web/PWA & Cấp camera, tải AI, nhập liệu, cuộn và cảnh báo trên màn hình nhỏ. & Máy, OS, Chrome, video.\\
+Android APK & Cài gói, kiểm tra API base, camera và đồng bộ nhật ký/điểm. & APK version, commit native.\\
+iOS Safari/PWA & Camera hiển thị, AI sẵn sàng, có thể hoàn thành bài qua link HTTPS. & Máy, iOS, Safari, video.\\
+Chuyển ứng dụng & Rời và quay lại; đối chiếu nhật ký SV/GV, thời gian còn lại. & Thời điểm, loại sự kiện, ảnh.\\
+Tải lại / mất mạng & Kiểm tra giữ mốc giờ, mất lựa chọn và fallback; mô tả lỗi trung thực. & Yêu cầu, phản hồi, log.\\
+Vòng đời & Nộp bài, rời màn hình, kiểm tra camera, timer và sự kiện nền. & Video/nhật ký tài nguyên.\\
+\bottomrule
+\end{longtable}

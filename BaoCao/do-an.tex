@@ -1,0 +1,40 @@
+% !TEX program = xelatex
+\documentclass[12pt,a4paper,oneside]{book}
+\input{styles/settings}
+\usepackage{longtable}
+\usepackage{needspace}
+\hypersetup{pdftitle={EduShield AI - He thong thi truc tuyen va ho tro giam sat},pdfauthor={Nhom thuc hien - can bo sung}}
+\newcommand{\src}[1]{{\small\nolinkurl{#1}}}
+\newcommand{\pending}[1]{\textcolor{daumaroon}{[#1]}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\tikzset{reportbox/.style={draw=daunavy,rounded corners,fill=lightnavy,align=center,font=\small,text width=4.3cm,minimum height=1cm},reportarrow/.style={-{Stealth},thick,draw=daunavy}}
+\setlength{\emergencystretch}{2em}
+\input{thong-tin}
+\begin{document}
+\raggedbottom
+\coverpage
+\frontmatter
+\dauPageStyle
+\input{chuong/00-loi-cam-doan}
+\input{chuong/00-loi-cam-on}
+\input{chuong/00-tom-tat}
+\tableofcontents
+\listoffigures
+\listoftables
+\listofalgorithms
+\input{chuong/00-quy-uoc}
+\mainmatter
+\dauPageStyle
+\input{chuong/01-mo-dau}
+\input{chuong/02-co-so-ly-thuyet}
+\input{chuong/03-phan-tich-thiet-ke}
+\input{chuong/04-cai-dat}
+\input{chuong/05-ket-qua-danh-gia}
+\input{chuong/06-ket-luan}
+\backmatter
+\cleardoublepage\phantomsection
+\addcontentsline{toc}{chapter}{Tài liệu tham khảo}
+\bibliographystyle{plain}
+\bibliography{refs}
+\input{chuong/07-phu-luc}
+\end{document}

@@ -1,0 +1,19 @@
+/root/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+2026-09-25 14:07:02,657 [INFO] edushield.database — Database initialized successfully (SQLite: edushield.db)
+2026-09-25 14:07:02,778 [INFO] httpx — HTTP Request: GET http://testserver/api/exams "HTTP/1.1 401 Unauthorized"
+2026-09-25 14:07:02,804 [INFO] edushield.exams — Đã tạo đề thi DRAFT 'DE-TEST' (id=1) với 2 câu hợp lệ, 0 lỗi bị bỏ qua
+2026-09-25 14:07:02,807 [INFO] httpx — HTTP Request: POST http://testserver/api/exams/upload "HTTP/1.1 200 OK"
+2026-09-25 14:07:02,812 [INFO] httpx — HTTP Request: GET http://testserver/api/exams/code/DE-TEST/take "HTTP/1.1 403 Forbidden"
+2026-09-25 14:07:02,815 [INFO] edushield.exams — Đã công bố đề thi 'DE-TEST' (id=1)
+2026-09-25 14:07:02,817 [INFO] httpx — HTTP Request: POST http://testserver/api/exams/1/publish "HTTP/1.1 200 OK"
+2026-09-25 14:07:02,819 [INFO] httpx — HTTP Request: GET http://testserver/api/exams/code/DE-TEST/take "HTTP/1.1 200 OK"
+2026-09-25 14:07:02,826 [INFO] edushield.exams — SV 'SV-TEST' đã nộp bài đề 'DE-TEST': 5.00 điểm (1/2 câu đúng)
+2026-09-25 14:07:02,827 [INFO] httpx — HTTP Request: POST http://testserver/api/exams/code/DE-TEST/submit "HTTP/1.1 200 OK"
+2026-09-25 14:07:02,830 [INFO] httpx — HTTP Request: POST http://testserver/api/exams/code/DE-TEST/submit "HTTP/1.1 409 Conflict"
+2026-09-25 14:07:02,844 [INFO] httpx — HTTP Request: GET http://testserver/api/exams/1/export "HTTP/1.1 200 OK"
+2026-09-25 14:07:02,848 [INFO] edushield — Đã ghi nhận vi phạm: id=1, sinh_vien=SV-TEST, loai=NO_FACE, co_anh=KHÔNG
+2026-09-25 14:07:02,849 [INFO] httpx — HTTP Request: POST http://testserver/api/violations "HTTP/1.1 201 Created"
+2026-09-25 14:07:02,853 [INFO] httpx — HTTP Request: POST http://testserver/api/violations "HTTP/1.1 400 Bad Request"
+2026-09-25 14:07:02,855 [INFO] httpx — HTTP Request: GET http://testserver/api/snapshots/SV-TEST/nonexistent.jpg "HTTP/1.1 401 Unauthorized"
+PASS 17 cases. Synthetic data, isolated SQLite.

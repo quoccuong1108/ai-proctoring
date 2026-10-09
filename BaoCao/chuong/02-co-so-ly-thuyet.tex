@@ -1,0 +1,82 @@
+\chapter{Cơ sở lý thuyết và công nghệ}
+\section{Kiến trúc ứng dụng web và phân chia trách nhiệm}
+Một ứng dụng web có thể chia thành lớp giao diện, lớp dịch vụ và lớp lưu trữ. Trong EduShield AI, giao diện quản lý trạng thái tương tác và camera; dịch vụ kiểm tra yêu cầu, chấm điểm, xác thực quyền giám thị và cung cấp dữ liệu; lớp lưu trữ duy trì các thực thể nghiệp vụ. Phân chia này giúp tránh đặt đáp án đúng hoặc quyền quyết định điểm số trong mã chạy ở máy khách.
+
+Tuy nhiên, phân chia lớp chỉ mang lại lợi ích khi ranh giới tin cậy được thực thi. Trình duyệt thuộc quyền điều khiển của người dùng, do đó thời điểm, mã sinh viên và nhãn sự kiện gửi từ trình duyệt không nên mặc nhiên được xem là dữ liệu đã xác thực. Việc che nút hoặc khóa phím ở giao diện không thay thế kiểm tra ở API. Báo cáo sử dụng nguyên tắc này để phân biệt tính tiện dụng với tính bảo đảm của hệ thống.
+
+\section{React, Vite và thiết kế giao diện}
+React tổ chức giao diện theo thành phần. Mỗi thành phần nhận dữ liệu, giữ trạng thái cần thiết và hiển thị theo trạng thái hiện tại. Trong dự án, cách tổ chức này phù hợp với các màn hình có nhiều trạng thái như chờ tải mô hình, xin quyền camera, làm bài, nộp bài và xem kết quả. Các hiệu ứng cần giải phóng tài nguyên đúng lúc vì camera, bộ hẹn giờ và listener của trình duyệt có vòng đời dài hơn một thao tác nhấn nút.
+
+Vite đảm nhiệm môi trường phát triển và đóng gói giao diện. Tailwind CSS hỗ trợ biểu diễn quy tắc trình bày, Lucide cung cấp biểu tượng và Framer Motion được dùng cho chuyển động giao diện. Đây là các công cụ giao diện; sự hiện diện của chúng không chứng minh hiệu năng đã tối ưu trên mọi thiết bị. Các yêu cầu về kích thước chữ, khoảng trống, vùng camera và câu hỏi dài cần được đánh giá riêng bằng thử nghiệm sử dụng.
+
+\section{FastAPI, SQLAlchemy và SQLite}
+FastAPI được dùng để khai báo các tuyến HTTP và cấu trúc dữ liệu yêu cầu. Các mô hình đầu vào giúp kiểm tra kiểu và một số giới hạn ngay tại biên API. Kiểm tra nghiệp vụ, chẳng hạn đề đã công bố hay một sinh viên đã nộp bài, vẫn cần được cài đặt trong hàm xử lý.
+
+SQLAlchemy ánh xạ bảng dữ liệu thành đối tượng Python và hỗ trợ giao dịch. Một lần nộp bài cần ghi bản tổng hợp cùng các câu trả lời trong cùng giao dịch để tránh tình trạng đã có điểm tổng nhưng mất chi tiết. Ràng buộc duy nhất ở CSDL bổ sung cho bước kiểm tra trước khi ghi, vì hai yêu cầu đồng thời vẫn có thể vượt qua kiểm tra ở tầng ứng dụng.
+
+SQLite phù hợp với nguyên mẫu có cấu hình đơn giản vì dữ liệu được lưu trong một tệp. Chế độ WAL giúp hoạt động đọc và ghi phối hợp tốt hơn, nhưng không biến SQLite thành hệ quản trị có nhiều giao dịch ghi đồng thời độc lập; vẫn cần xem xét giới hạn một bên ghi tại một thời điểm \cite{sqlitewal}. Việc bật WAL và thời gian chờ khóa trong dự án là cấu hình kỹ thuật, không phải kết quả đo khả năng chịu tải.
+
+\section{Suy luận thị giác máy tính trong trình duyệt}
+\subsection{Phát hiện khuôn mặt và điểm mốc}
+MediaPipe Face Landmarker cung cấp các điểm mốc khuôn mặt để ứng dụng xử lý tiếp trên dữ liệu hình học \cite{mpface}. Dự án nạp tệp mô hình đã huấn luyện sẵn và chạy ở chế độ video. Kết quả được sử dụng để đếm số khuôn mặt và lấy vị trí một số điểm mốc, không dùng để xác định danh tính cá nhân.
+
+Phát hiện khuôn mặt trả lời câu hỏi ``có khuôn mặt và nằm ở đâu''. Nhận dạng danh tính trả lời ``đây là ai''. Ước lượng ánh nhìn trả lời ``người đó đang nhìn hướng nào''. Ba bài toán có yêu cầu dữ liệu và đánh giá khác nhau. Mã nguồn hiện tại chỉ sử dụng thông tin khuôn mặt và quy tắc hình học cho dấu hiệu quay đầu, vì vậy không nên gọi hệ thống là xác thực khuôn mặt hoặc theo dõi ánh mắt đầy đủ.
+
+\subsection{Phát hiện điện thoại}
+MediaPipe Object Detector trả về các đối tượng được mô hình nhận diện cùng nhãn và điểm tin cậy \cite{mpobject}. Dự án dùng EfficientDet Lite0 và lọc nhãn \texttt{cell phone}. Điểm tin cậy của một phát hiện là tín hiệu xếp hạng của mô hình, không đồng nghĩa với xác suất một sinh viên gian lận.
+
+Điện thoại chỉ có thể được phát hiện nếu nó xuất hiện đủ rõ trong khung hình. Vật bị che khuất, ở ngoài camera hoặc quá nhỏ có thể không được ghi nhận. Ngược lại, vật thể có hình dạng tương tự có thể dẫn tới báo nhầm. Chọn ngưỡng thấp làm tăng cơ hội bắt được đối tượng nhưng cũng có thể tăng cảnh báo sai; việc chọn ngưỡng cần dựa vào dữ liệu thực nghiệm phù hợp với môi trường thi.
+
+\subsection{Lợi ích và giới hạn của xử lý cục bộ}
+Suy luận trên máy khách giúp máy chủ không phải xử lý liên tục mọi khung hình của mọi sinh viên. Việc chỉ gửi ảnh khi có sự kiện làm giảm lượng hình ảnh truyền đi so với luồng video liên tục cùng điều kiện. Mức giảm cụ thể chưa được đo và phụ thuộc tần suất sự kiện, kích thước ảnh và thời lượng bài thi.
+
+Đổi lại, hiệu năng phụ thuộc CPU, GPU, trình duyệt, mức tiêu thụ năng lượng và các ứng dụng khác trên thiết bị. Mã chạy trên máy khách có thể bị can thiệp. Mô hình và tài nguyên WASM được tải từ bên ngoài nên tốc độ khởi tạo và khả năng hoạt động còn phụ thuộc kết nối. Đó là các điều kiện triển khai cần kiểm tra trước buổi thi.
+
+\section{Các quy tắc sinh sự kiện}
+\subsection{Dấu hiệu quay đầu bằng tỷ số hình học}
+Gọi $x_N$ là hoành độ điểm mốc mũi, $x_L$ và $x_R$ là hoành độ hai điểm mốc ở vùng mắt. Đặt tâm tham chiếu $c$ và khoảng cách mắt $d$:
+\begin{equation}
+ c=\frac{x_L+x_R}{2},\qquad d=|x_R-x_L|.
+\end{equation}
+Mã nguồn tính độ lệch tương đối $r$ và tỷ số bất đối xứng $a$:
+\begin{equation}
+ r=\frac{|x_N-c|}{d+\varepsilon},\qquad
+ a=\frac{\max(|x_N-x_L|,|x_N-x_R|)}{\min(|x_N-x_L|,|x_N-x_R|)+\varepsilon},
+ \quad\varepsilon=10^{-6}.
+\end{equation}
+Điều kiện nghi quay đầu là $r>0{,}25$ hoặc $a>1{,}25$. Điều kiện cần duy trì qua số lần phát hiện liên tiếp phụ thuộc thiết bị trước khi chuyển thành nhãn quay đầu. Đây là quy tắc theo tọa độ ảnh, chưa phải phép tính góc quay đầu đã hiệu chuẩn theo độ. Vị trí camera, hình dạng khuôn mặt và tư thế ngồi có thể ảnh hưởng tỷ số.
+
+Chu kỳ lập lịch là 300 ms trên PC và 500 ms trên thiết bị di động. Ngưỡng đếm $N=\lceil3600/\Delta t\rceil$ tương ứng 12 lượt trên PC và 8 lượt trên mobile; tích $N\Delta t$ lần lượt là 3,6 và 4,0 giây. Con số này chỉ là suy ra từ cấu hình; độ trễ thực tế còn phụ thuộc thời gian suy luận và cách trình duyệt lập lịch. Không nên báo cáo nó như độ trễ đã đo.
+
+\subsection{Độ sáng và dấu hiệu camera bị che}
+Khung hình được thu nhỏ để tính độ sáng. Với thành phần màu $R,G,B$, dự án sử dụng:
+\begin{equation}
+ Y=0{,}299R+0{,}587G+0{,}114B,\qquad
+ \overline{Y}=\frac{1}{m}\sum_{i=1}^{m}Y_i.
+\end{equation}
+Nếu $\overline{Y}<15$ trên thang giá trị màu 0--255, hệ thống gắn nhãn \src{CAMERA_BLOCKED}. Cách đặt tên thể hiện mục đích cảnh báo, nhưng phép đo thực chất phát hiện hình ảnh rất tối. Một phòng thiếu sáng có thể thỏa điều kiện này; một vật sáng che camera có thể không thỏa. Do đó, cần diễn giải nhãn kèm ảnh thay vì xem đó là bằng chứng chắc chắn camera bị che có chủ đích.
+
+\subsection{Giới hạn tần suất và thứ tự ưu tiên}
+Khi một trạng thái kéo dài, ghi mỗi lần suy luận sẽ tạo nhiều bản ghi gần giống nhau. Dự án áp dụng khoảng nghỉ 5 giây theo từng loại sự kiện. Nếu $t$ là thời điểm hiện tại và $t_k$ là lần ghi gần nhất của loại $k$, chỉ ghi mới khi $t-t_k\geq5$ giây. Cách này giảm lặp nhưng không gom một chuỗi sự kiện thành một khoảng vi phạm có thời điểm bắt đầu và kết thúc.
+
+Các điều kiện được xét theo ưu tiên nên mỗi lần suy luận chỉ sinh một nhãn chính. Số lượng bản ghi vì vậy phụ thuộc cả khoảng nghỉ và thứ tự ưu tiên, không phản ánh trực tiếp tổng thời gian hoặc số hành vi thực tế. Đây là điểm cần nhớ khi đọc biểu đồ thống kê trên giao diện.
+
+\section{Chấm điểm và tiêu chí đánh giá}
+Với $n$ câu hỏi có trọng số $w_i$, đáp án đúng $y_i$ và lựa chọn $\hat y_i$, điểm được tính từ tổng các câu đúng:
+\begin{equation}
+ S=\operatorname{round}\left(\min\left(10,\sum_{i=1}^{n}w_i\,\mathbf{1}[\hat y_i=y_i]\right),2\right).
+\end{equation}
+Trong luồng nhập đề hiện tại, mỗi câu có $w_i=\operatorname{round}(10/n,4)$. Câu bỏ trống được tính là không đúng. Vì làm tròn trọng số trước khi cộng, cần kiểm tra trường hợp nhiều câu để bảo đảm kết quả phù hợp quy chế chấm; máy chủ hiện giới hạn điểm tối đa ở 10.
+
+Đánh giá chức năng và đánh giá AI là hai tầng khác nhau. Một API lưu đúng nhãn nhận được không chứng minh nhãn đó đúng với tình huống trong ảnh. Để đánh giá nhận diện, cần dữ liệu có nhãn đối chiếu và có thể sử dụng:
+\begin{equation}
+ P=\frac{TP}{TP+FP},\quad R=\frac{TP}{TP+FN},\quad F_1=\frac{2PR}{P+R}.
+\end{equation}
+Các chỉ số này được đưa ra để thiết kế thực nghiệm, chưa phải kết quả đo của dự án. Với giám sát theo thời gian, còn cần số cảnh báo nhầm mỗi giờ và độ trễ phát hiện sự kiện, vì hai yếu tố này tác động trực tiếp đến trải nghiệm của sinh viên và khối lượng xem xét của giảng viên.
+
+\section{Web di động, PWA và kênh APK}
+Web di động dùng cùng frontend React qua trình duyệt. Manifest, biểu tượng và chế độ hiển thị standalone hỗ trợ trải nghiệm thêm ứng dụng vào màn hình chính. Trong repo khảo sát không có service worker, vì vậy không xem PWA là cơ chế thi ngoại tuyến. Safari/PWA trên iOS vẫn chịu giới hạn camera, vòng đời trang và quyền do hệ điều hành quản lý.
+
+APK là gói cài Android; nếu đóng gói frontend bằng một lớp WebView như Capacitor, giao diện có thể dùng lại nghiệp vụ web nhưng cần cấu hình địa chỉ API từ xa và quyền camera phù hợp. Đây là mô tả nguyên lý tích hợp; cấu hình native của bản APK đã chạy chưa nằm trong commit công khai được khảo sát.
+
+Cloudflare Tunnel tạo tuyến truy cập từ địa chỉ HTTPS công khai tới dịch vụ cục bộ trên laptop. Trong mô hình của đề tài, tunnel chuyển yêu cầu tới FastAPI cổng 8000. HTTPS cung cấp secure context cho camera khi truy cập từ điện thoại; không thay thế token quản lý hoặc chứng thực sinh viên. Mô hình demo phụ thuộc laptop, tiến trình backend, tiến trình tunnel và kết nối Internet.

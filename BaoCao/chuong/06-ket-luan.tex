@@ -1,0 +1,35 @@
+\chapter{Kết luận và hướng phát triển}
+\section{Kết quả đạt được}
+EduShield AI đã hình thành một chuỗi chức năng từ nhập đề, công bố, làm bài và chấm điểm đến ghi nhận sự kiện hình ảnh và tra cứu phía giảng viên. Kiến trúc React--FastAPI--SQLite tách giao diện với dữ liệu nghiệp vụ; mô hình MediaPipe chạy trong trình duyệt để cung cấp tín hiệu khuôn mặt và vật thể. Các quy tắc hình học, độ sáng, ưu tiên nhãn và khoảng nghỉ biến đầu ra thành cảnh báo có thể hiển thị và lưu trữ.
+
+Ở góc độ đồ án trí tuệ nhân tạo ứng dụng, phần đóng góp là lựa chọn, tích hợp và tổ chức hệ thống quanh các mô hình có sẵn, thay vì huấn luyện một mô hình mới. Ảnh sự kiện, thời gian và mã sinh viên tạo cơ sở để giảng viên tra cứu. Luồng chấm điểm trên máy chủ, không trả đáp án chuẩn qua API sinh viên và ràng buộc chống nộp trùng là các điểm thiết kế có ích.
+
+Bộ kiểm thử đã thực hiện xác nhận 17 ca chức năng với dữ liệu tổng hợp. Kết quả này củng cố một phần logic nhập đề, công bố, chấm, xác thực và xử lý thời gian. Tuy nhiên, tính chính xác của cảnh báo AI, độ ổn định camera, khả năng chịu tải và trải nghiệm trên nhiều thiết bị vẫn cần đánh giá thực nghiệm độc lập.
+
+Hệ thống đã mở rộng phục vụ web di động qua HTTPS, dùng chung backend với giảng viên; lưu mốc bắt đầu và gửi sự kiện trình duyệt. Tác giả xác nhận APK Android và kênh iOS hoạt động. Phần có thể tái lập từ repo hiện tại là web/PWA và API; cần bổ sung nguồn native để tái lập APK.
+
+\section{Những vấn đề còn tồn tại}
+Các hạn chế trọng tâm nằm ở phiên thi và tính tin cậy dữ liệu từ trình duyệt. Hệ thống chưa xác thực danh tính sinh viên, chưa quản lý hạn nộp dựa trên phiên phía máy chủ, chưa gắn sự kiện trực tiếp với bài thi và chưa bảo đảm gửi lại khi mất mạng. Sự kiện chuyển tab đã được gửi về máy chủ khi đang thi, nhưng chưa có bảo đảm gửi lại khi mạng gián đoạn.
+
+Về AI, ngưỡng quay đầu và độ sáng là quy tắc cần hiệu chuẩn theo điều kiện sử dụng. Việc chọn một nhãn theo ưu tiên có thể bỏ qua dấu hiệu đồng thời. Không có số liệu kiểm tra độc lập để kết luận độ chính xác hoặc khả năng phát hiện gian lận. Cơ chế khóa trình duyệt cũng chỉ là lớp hỗ trợ tương tác, không phải môi trường thi được kiểm soát ở mức hệ điều hành.
+
+\section{Lộ trình hoàn thiện đề xuất}
+\begin{longtable}{@{}L{1.5cm}L{6.2cm}L{6.9cm}@{}}
+\caption{Lộ trình phát triển theo mức ưu tiên}\\
+\toprule Giai đoạn & Công việc & Điều kiện hoàn thành \\\midrule\endfirsthead
+\toprule Giai đoạn & Công việc & Điều kiện hoàn thành \\\midrule\endhead
+1 & Hoàn thiện phiên từ mốc exam\_starts; xác thực sinh viên; cưỡng chế deadline; liên kết sự kiện với phiên; kiểm thử sự kiện đa thiết bị. & Không nộp bằng phiên không hợp lệ; không cộng sự kiện giữa đề; chuyển tab xuất hiện đúng phiên ở giảng viên.\\
+2 & Hàng đợi sự kiện, ID chống trùng, xử lý offline; dừng camera sau nộp; phân trang rõ. & Mất mạng có thể phục hồi theo chính sách; không nhân đôi bản ghi; tài nguyên được giải phóng.\\
+3 & Thu dữ liệu đánh giá có đồng ý, hiệu chỉnh ngưỡng, đo trên nhiều thiết bị; kiểm tra tình huống đồng thời. & Công bố dữ liệu thử ở mức phù hợp, tiêu chí gán nhãn, bảng precision/recall và cảnh báo nhầm mỗi giờ.\\
+4 & Tài khoản giảng viên, quyền theo lớp, nhật ký truy cập; migration, sao lưu và kiểm thử tải. & Có quy trình cấp/thu hồi quyền, khôi phục dữ liệu và bằng chứng hiệu năng trên cấu hình triển khai.\\
+\bottomrule
+\end{longtable}
+
+Các thay đổi về mô hình AI nên được quyết định sau khi có dữ liệu lỗi thực tế. Nếu báo nhầm chủ yếu do khung hình tối, cải thiện hướng dẫn ánh sáng có thể hữu ích hơn thay mạng. Nếu vấn đề là điện thoại quá nhỏ, cần xem lại vị trí camera, độ phân giải và tiêu chí sự kiện trước khi đánh đổi thêm tài nguyên suy luận.
+
+Khi mở rộng quy mô, có thể xem xét PostgreSQL và tách các tác vụ nền sau khi phép đo chỉ ra giới hạn hiện tại. Việc đổi công nghệ không tự giải quyết định danh, deadline hoặc mất sự kiện; các yêu cầu nhất quán này phải được thiết kế trước và kiểm chứng sau thay đổi.
+
+\section{Kết luận chung}
+Đề tài cho thấy khả năng kết hợp nền tảng thi trắc nghiệm với suy luận thị giác trong trình duyệt để hỗ trợ giảng viên. Phiên bản khảo sát có các chức năng nghiệp vụ cốt lõi và một số kết quả kiểm thử tái lập được. Giá trị của hệ thống nằm ở việc cung cấp thông tin kịp thời và minh chứng để xem xét, trong khi quyết định về vi phạm vẫn cần quy trình đánh giá của con người.
+
+Để chuyển từ nguyên mẫu sang vận hành có độ tin cậy cao hơn, ưu tiên tiếp theo là củng cố phiên thi và dữ liệu, hoàn thiện luồng giám sát đầu cuối và thực nghiệm AI minh bạch. Đây cũng là cơ sở để đánh giá tiến bộ của dự án bằng bằng chứng cụ thể thay vì chỉ dựa vào giao diện hoặc số lượng chức năng.
