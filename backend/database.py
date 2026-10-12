@@ -7,6 +7,8 @@ Bảng `violations` lưu metadata vi phạm + đường dẫn file ảnh snapsho
 """
 
 import logging
+import os
+import sqlite3
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -17,9 +19,12 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    text,
     UniqueConstraint,
+    URL,
     create_engine,
     event,
+    inspect,
 )
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
@@ -29,7 +34,10 @@ logger = logging.getLogger("edushield.database")
 # SQLAlchemy Engine & Session
 # ──────────────────────────────────────────────────────────
 
-DATABASE_URL = "sqlite:///edushield.db"
+DATABASE_URL = URL.create(
+    "sqlite",
+    database=os.path.join(os.path.dirname(os.path.abspath(__file__)), "edushield.db"),
+)
 
 engine = create_engine(
     DATABASE_URL,
@@ -72,7 +80,7 @@ class Base(DeclarativeBase):
 
 
 # ──────────────────────────────────────────────────────────
-# Hằng số trạng thái — Module Đề thi
+# Hằng số trạng thái — Module Đề thi & Ghi danh
 # (Dùng string thay vì Enum cột DB để đơn giản hoá migration trên SQLite)
 # ──────────────────────────────────────────────────────────
 
@@ -83,6 +91,74 @@ EXAM_STATUS_CLOSED = "CLOSED"
 SUBMISSION_STATUS_IN_PROGRESS = "IN_PROGRESS"
 SUBMISSION_STATUS_SUBMITTED = "SUBMITTED"
 SUBMISSION_STATUS_AUTO_SUBMITTED = "AUTO_SUBMITTED"
+
+ENROLLMENT_STATUS_PENDING = "PENDING"
+ENROLLMENT_STATUS_APPROVED = "APPROVED"
+ENROLLMENT_STATUS_REJECTED = "REJECTED"
+ENROLLMENT_STATUS_REVOKED = "REVOKED"
+
+
+# ──────────────────────────────────────────────────────────
+# Teacher & Session Models — Tài khoản & Phiên Giảng viên
+# ──────────────────────────────────────────────────────────
+
+class Teacher(Base):
+    """
+    Bảng lưu thông tin tài khoản Giảng viên / Giám thị.
+    """
+
+    __tablename__ = "teachers"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    teacher_code = Column(String(50), unique=True, nullable=False, index=True)
+    full_name = Column(String(150), nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    password_salt = Column(String(64), nullable=False)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    sessions = relationship("TeacherSession", back_populates="teacher", cascade="all, delete-orphan")
+    exams = relationship("Exam", back_populates="teacher")
+
+    def __repr__(self):
+        return f"<Teacher(id={self.id}, code='{self.teacher_code}', name='{self.full_name}')>"
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "teacher_code": self.teacher_code,
+            "full_name": self.full_name,
+            "created_at": (
+                self.created_at.replace(tzinfo=timezone.utc)
+                if self.created_at.tzinfo is None
+                else self.created_at.astimezone(timezone.utc)
+            ).isoformat() if self.created_at else None,
+        }
+
+
+class TeacherSession(Base):
+    """
+    Bảng lưu phiên đăng nhập của Giảng viên.
+    Token thực tế lưu dạng SHA-256 hash để bảo mật.
+    """
+
+    __tablename__ = "teacher_sessions"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    expires_at = Column(DateTime, nullable=False, index=True)
+    ip = Column(String(50), nullable=True)
+
+    teacher = relationship("Teacher", back_populates="sessions")
 
 
 # ──────────────────────────────────────────────────────────
@@ -96,12 +172,14 @@ class Violation(Base):
     Columns:
         id           — Primary key tự tăng
         student_id   — Mã sinh viên (e.g., "SV001")
-        student_name — Họ và tên sinh viên (do sinh viên tự nhập lúc đăng nhập, có thể rỗng)
+        student_name — Họ và tên khai báo trong yêu cầu vào thi
         violation_type — Loại vi phạm: NO_FACE, TURNING_HEAD, PHONE_DETECTED, etc.
         captured_at  — Thời điểm vi phạm xảy ra (ISO 8601, do client gửi lên)
         image_path   — Đường dẫn file ảnh snapshot trên disk, dạng snapshots/{student_id}/{filename}.jpg
                        (nullable khi đã bị xóa)
         created_at   — Thời điểm record được tạo trên server
+        exam_id      — ID đề thi liên kết (nullable)
+        enrollment_id— ID lượt ghi danh liên kết (nullable)
     """
 
     __tablename__ = "violations"
@@ -117,6 +195,11 @@ class Violation(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="SET NULL"), nullable=True, index=True)
+    enrollment_id = Column(Integer, ForeignKey("exam_enrollments.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    exam = relationship("Exam", back_populates="violations")
+    enrollment = relationship("ExamEnrollment", back_populates="violations")
 
     def __repr__(self):
         return (
@@ -128,8 +211,6 @@ class Violation(Base):
         """Serialize thành dict để trả về qua API."""
         image_url = None
         if self.image_path:
-            # Ảnh được lưu theo cấu trúc snapshots/{student_folder}/{filename}.jpg — lấy đúng
-            # 2 thành phần cuối của đường dẫn (thư mục SV + tên file) để dựng URL API tương ứng.
             norm_path = self.image_path.replace("\\", "/")
             parts = [p for p in norm_path.split("/") if p]
             rel = "/".join(parts[-2:]) if len(parts) >= 2 else parts[-1]
@@ -144,6 +225,8 @@ class Violation(Base):
             "image_url": image_url,
             "image_path": self.image_path,
             "created_at": (self.created_at.replace(tzinfo=timezone.utc) if self.created_at.tzinfo is None else self.created_at.astimezone(timezone.utc)).isoformat() if self.created_at else None,
+            "exam_id": self.exam_id,
+            "enrollment_id": self.enrollment_id,
         }
 
 
@@ -153,10 +236,8 @@ class Violation(Base):
 
 class Exam(Base):
     """
-    Bảng lưu thông tin 1 đề thi trắc nghiệm, được tạo ra bằng cách Giảng viên upload file
-    .xlsx/.docx theo mẫu quy định (xem exam_parser.py). Xem chi tiết Chương 5.1 đặc tả.
-
-    Vòng đời trạng thái: DRAFT -> PUBLISHED -> CLOSED (đóng thủ công, chưa dùng ở bản này).
+    Bảng lưu thông tin 1 đề thi trắc nghiệm.
+    Vòng đời trạng thái: DRAFT -> PUBLISHED -> CLOSED.
     """
 
     __tablename__ = "exams"
@@ -164,8 +245,15 @@ class Exam(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     exam_code = Column(String(50), unique=True, nullable=False, index=True)
     title = Column(String(255), nullable=False)
-    # duration_minutes/pass_score chỉ có giá trị thật sau khi Publish; để mặc định hợp lý
-    # cho đề còn ở trạng thái DRAFT (chưa cấu hình) để tránh giá trị NULL rải rác không cần thiết.
+    subject = Column(
+        String(100),
+        nullable=False,
+        default="Chưa phân môn",
+        server_default="Chưa phân môn",
+        index=True,
+    )
+    teacher_id = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True, index=True)
+    join_open_minutes = Column(Integer, nullable=False, default=15, server_default="15")
     duration_minutes = Column(Integer, nullable=True)
     pass_score = Column(Float, nullable=False, default=5.0)
     shuffle_questions = Column(Boolean, nullable=False, default=False)
@@ -175,6 +263,7 @@ class Exam(Base):
     created_by = Column(String(50), nullable=True)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
+    teacher = relationship("Teacher", back_populates="exams")
     questions = relationship(
         "Question",
         back_populates="exam",
@@ -183,21 +272,39 @@ class Exam(Base):
     )
     submissions = relationship("ExamSubmission", back_populates="exam", cascade="all, delete-orphan")
     starts = relationship("ExamStart", back_populates="exam", cascade="all, delete-orphan")
+    enrollments = relationship("ExamEnrollment", back_populates="exam", cascade="all, delete-orphan")
+    violations = relationship("Violation", back_populates="exam")
 
     def to_dict(self, include_questions: bool = False, with_answers: bool = False) -> dict:
         data = {
             "id": self.id,
             "exam_code": self.exam_code,
             "title": self.title,
+            "subject": self.subject or "Chưa phân môn",
+            "teacher_id": self.teacher_id,
+            "teacher_name": self.teacher.full_name if self.teacher else (self.created_by or "Giảng viên"),
+            "join_open_minutes": self.join_open_minutes,
             "duration_minutes": self.duration_minutes,
             "total_questions": len(self.questions),
             "pass_score": self.pass_score,
             "shuffle_questions": self.shuffle_questions,
             "status": self.status,
-            "start_time": self.start_time.isoformat() if self.start_time else None,
-            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "start_time": (
+                self.start_time.replace(tzinfo=timezone.utc)
+                if self.start_time and self.start_time.tzinfo is None
+                else self.start_time.astimezone(timezone.utc)
+            ).isoformat() if self.start_time else None,
+            "end_time": (
+                self.end_time.replace(tzinfo=timezone.utc)
+                if self.end_time and self.end_time.tzinfo is None
+                else self.end_time.astimezone(timezone.utc)
+            ).isoformat() if self.end_time else None,
             "created_by": self.created_by,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": (
+                self.created_at.replace(tzinfo=timezone.utc)
+                if self.created_at and self.created_at.tzinfo is None
+                else self.created_at.astimezone(timezone.utc)
+            ).isoformat() if self.created_at else None,
         }
         if include_questions:
             data["questions"] = [q.to_dict(with_answer=with_answers) for q in self.questions]
@@ -205,7 +312,7 @@ class Exam(Base):
 
 
 class Question(Base):
-    """1 câu hỏi trắc nghiệm 4 đáp án, thuộc về 1 đề thi (Chương 5.2 đặc tả)."""
+    """1 câu hỏi trắc nghiệm 4 đáp án, thuộc về 1 đề thi."""
 
     __tablename__ = "questions"
 
@@ -240,13 +347,7 @@ class Question(Base):
 
 class ExamStart(Base):
     """
-    Thời điểm sinh viên BẮT ĐẦU làm 1 đề thi, ghi nhận ở phía server (lần bấm "Bắt đầu làm bài"
-    đầu tiên). Dùng để tính thời gian còn lại đáng tin cậy: đồng hồ ở trình duyệt/điện thoại có
-    thể bị ngưng khi ứng dụng bị đẩy xuống nền, hoặc bị đặt lại khi sinh viên tải lại trang.
-
-    Bảng mới, tự được tạo bởi init_db() (create_all) — không cần migrate dữ liệu cũ.
-    Mỗi cặp (đề thi, sinh viên) chỉ có 1 dòng: bấm "Bắt đầu" lại (tải lại trang, đổi thiết bị)
-    sẽ nhận về thời gian CÒN LẠI chứ không được cấp lại từ đầu.
+    Thời điểm sinh viên BẮT ĐẦU làm 1 đề thi, ghi nhận ở phía server.
     """
 
     __tablename__ = "exam_starts"
@@ -257,7 +358,6 @@ class ExamStart(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     exam_id = Column(Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, index=True)
     student_id = Column(String(50), nullable=False, index=True)
-    # Lưu dạng UTC không kèm múi giờ — cùng quy ước với start_time/end_time/submitted_at của module Đề thi.
     started_at = Column(DateTime, nullable=False)
 
     exam = relationship("Exam", back_populates="starts")
@@ -265,11 +365,7 @@ class ExamStart(Base):
 
 class ExamSubmission(Base):
     """
-    Bài nộp của 1 sinh viên cho 1 đề thi (Chương 5.3 đặc tả).
-
-    Ràng buộc UNIQUE(exam_id, student_id) ở tầng CSDL là lớp bảo vệ CUỐI CÙNG chống nộp
-    trùng, kể cả khi có 2 request nộp bài của cùng 1 sinh viên tới gần như đồng thời
-    (tầng ứng dụng ở exams_router.py cũng kiểm tra trước, nhưng chỉ CSDL mới đảm bảo tuyệt đối).
+    Bài nộp của 1 sinh viên cho 1 đề thi.
     """
 
     __tablename__ = "exam_submissions"
@@ -295,7 +391,7 @@ class ExamSubmission(Base):
 
 
 class SubmissionAnswer(Base):
-    """Chi tiết 1 câu trả lời của sinh viên trong 1 bài nộp (Chương 5.4 đặc tả)."""
+    """Chi tiết 1 câu trả lời của sinh viên trong 1 bài nộp."""
 
     __tablename__ = "submission_answers"
 
@@ -304,10 +400,214 @@ class SubmissionAnswer(Base):
         Integer, ForeignKey("exam_submissions.id", ondelete="CASCADE"), nullable=False, index=True
     )
     question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
-    selected_option = Column(String(1), nullable=True)  # NULL nếu SV bỏ trống câu này
+    selected_option = Column(String(1), nullable=True)
     is_correct = Column(Boolean, nullable=False, default=False)
 
     submission = relationship("ExamSubmission", back_populates="answers")
+
+
+class ExamEnrollment(Base):
+    """
+    Ghi danh xin vào thi của Sinh viên đối với 1 Đề thi cụ thể.
+    Trạng thái: PENDING -> APPROVED / REJECTED / REVOKED
+    """
+
+    __tablename__ = "exam_enrollments"
+    __table_args__ = (
+        UniqueConstraint("exam_id", "student_id", name="uq_exam_student_enrollment"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(String(50), nullable=False, index=True)
+    student_name = Column(String(150), nullable=False)
+    status = Column(String(20), nullable=False, default=ENROLLMENT_STATUS_PENDING, index=True)
+    session_token_hash = Column(String(64), unique=True, nullable=True, index=True)
+    requested_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    decided_at = Column(DateTime, nullable=True)
+    decided_by = Column(Integer, ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True)
+    reject_reason = Column(String(255), nullable=True)
+    device_info = Column(String(255), nullable=True)
+    ip = Column(String(50), nullable=True)
+    request_token_hash = Column(String(64), unique=True, nullable=True, index=True)
+    session_token_issued = Column(Boolean, nullable=False, default=False, server_default="0")
+
+    exam = relationship("Exam", back_populates="enrollments")
+    violations = relationship("Violation", back_populates="enrollment")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "exam_id": self.exam_id,
+            "student_id": self.student_id,
+            "student_name": self.student_name,
+            "status": self.status,
+            "requested_at": (
+                self.requested_at.replace(tzinfo=timezone.utc)
+                if self.requested_at.tzinfo is None
+                else self.requested_at.astimezone(timezone.utc)
+            ).isoformat() if self.requested_at else None,
+            "decided_at": (
+                self.decided_at.replace(tzinfo=timezone.utc)
+                if self.decided_at and self.decided_at.tzinfo is None
+                else self.decided_at.astimezone(timezone.utc)
+            ).isoformat() if self.decided_at else None,
+            "decided_by": self.decided_by,
+            "reject_reason": self.reject_reason,
+            "device_info": self.device_info,
+            "ip": self.ip,
+        }
+
+
+# ──────────────────────────────────────────────────────────
+# Database Migration Helper
+# ──────────────────────────────────────────────────────────
+
+def _backup_database(db_engine):
+    with db_engine.connect() as conn:
+        database_path = conn.exec_driver_sql("PRAGMA database_list").fetchone()[2]
+        if not database_path or not os.path.isfile(database_path):
+            return
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup_path = f"{database_path}.pre-migration-{timestamp}.bak"
+        backup_db = sqlite3.connect(backup_path)
+        try:
+            conn.connection.driver_connection.backup(backup_db)
+        finally:
+            backup_db.close()
+        logger.info("Database backup created before migration: %s", backup_path)
+
+
+def _database_needs_update(db_engine):
+    inspector = inspect(db_engine)
+    tables = set(inspector.get_table_names())
+    if not tables:
+        return False
+
+    if set(Base.metadata.tables) - tables:
+        return True
+
+    required_columns = {
+        "exams": {"subject", "teacher_id", "join_open_minutes"},
+        "violations": {"exam_id", "enrollment_id"},
+        "exam_enrollments": {"request_token_hash", "session_token_issued"},
+    }
+    for table, required in required_columns.items():
+        if table in tables:
+            columns = {column["name"] for column in inspector.get_columns(table)}
+            if required - columns:
+                return True
+    exam_columns = {
+        column["name"] for column in inspector.get_columns("exams")
+    } if "exams" in tables else set()
+    if {"subject", "teacher_id"} <= exam_columns:
+        with db_engine.connect() as conn:
+            needs_subject_backfill = conn.exec_driver_sql(
+                "SELECT 1 FROM exams WHERE subject IS NULL OR TRIM(subject) = '' "
+                "OR (subject = 'Chung' AND teacher_id IS NULL) LIMIT 1"
+            ).first()
+        if needs_subject_backfill:
+            return True
+    return False
+
+
+def migrate_db(db_engine, create_backup=True):
+    """
+    Tự động cập nhật schema (ALTER TABLE) cho SQLite khi nâng cấp phiên bản
+    mà không làm mất dữ liệu đã có.
+    """
+    with db_engine.connect() as conn:
+        res = conn.exec_driver_sql("PRAGMA table_info(exams)").fetchall()
+        exam_cols = {row[1] for row in res}
+        res_v = conn.exec_driver_sql("PRAGMA table_info(violations)").fetchall()
+        v_cols = {row[1] for row in res_v}
+        enrollment_cols = {
+            row[1] for row in conn.exec_driver_sql("PRAGMA table_info(exam_enrollments)").fetchall()
+        }
+
+        migrations = []
+        subject_added = False
+        if exam_cols:
+            if "subject" not in exam_cols:
+                migrations.append(
+                    ("exams", "subject", "VARCHAR(100) NOT NULL DEFAULT 'Chưa phân môn'")
+                )
+                subject_added = True
+            if "teacher_id" not in exam_cols:
+                migrations.append(("exams", "teacher_id", "INTEGER REFERENCES teachers(id)"))
+            if "join_open_minutes" not in exam_cols:
+                migrations.append(
+                    ("exams", "join_open_minutes", "INTEGER NOT NULL DEFAULT 15")
+                )
+
+        if v_cols:
+            if "exam_id" not in v_cols:
+                migrations.append(("violations", "exam_id", "INTEGER REFERENCES exams(id)"))
+            if "enrollment_id" not in v_cols:
+                migrations.append(
+                    ("violations", "enrollment_id", "INTEGER REFERENCES exam_enrollments(id)")
+                )
+
+        request_token_added = False
+        if enrollment_cols:
+            if "request_token_hash" not in enrollment_cols:
+                migrations.append(
+                    ("exam_enrollments", "request_token_hash", "VARCHAR(64)")
+                )
+                request_token_added = True
+            if "session_token_issued" not in enrollment_cols:
+                migrations.append(
+                    ("exam_enrollments", "session_token_issued", "BOOLEAN NOT NULL DEFAULT 0")
+                )
+
+        needs_subject_backfill = False
+        if {"subject", "teacher_id"} <= exam_cols:
+            needs_subject_backfill = conn.exec_driver_sql(
+                "SELECT 1 FROM exams WHERE subject IS NULL OR TRIM(subject) = '' "
+                "OR (subject = 'Chung' AND teacher_id IS NULL) LIMIT 1"
+            ).first() is not None
+
+        if (migrations or needs_subject_backfill) and create_backup:
+            conn.rollback()
+            _backup_database(db_engine)
+        for table, column, definition in migrations:
+            logger.info("Migrating %s: ADD COLUMN %s", table, column)
+            conn.exec_driver_sql(
+                f"ALTER TABLE {table} ADD COLUMN {column} {definition}"
+            )
+        if subject_added:
+            conn.execute(
+                text("UPDATE exams SET subject = 'Chưa phân môn'")
+            )
+        elif exam_cols and "subject" in exam_cols:
+            conn.execute(
+                text(
+                    "UPDATE exams SET subject = 'Chưa phân môn' "
+                    "WHERE subject IS NULL OR TRIM(subject) = '' "
+                    "OR (subject = 'Chung' AND teacher_id IS NULL)"
+                )
+            )
+        if request_token_added:
+            conn.execute(
+                text(
+                    "UPDATE exam_enrollments "
+                    "SET request_token_hash = session_token_hash, session_token_hash = NULL, "
+                    "session_token_issued = 0 "
+                    "WHERE session_token_hash IS NOT NULL"
+                )
+            )
+        if enrollment_cols:
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ix_exam_enrollments_request_token_hash "
+                "ON exam_enrollments (request_token_hash)"
+            )
+        conn.commit()
 
 
 # ──────────────────────────────────────────────────────────
@@ -315,10 +615,13 @@ class SubmissionAnswer(Base):
 # ──────────────────────────────────────────────────────────
 
 def init_db():
-    """Tạo tất cả bảng nếu chưa tồn tại."""
+    """Tạo tất cả bảng nếu chưa tồn tại và chạy migrate schema."""
     try:
+        if _database_needs_update(engine):
+            _backup_database(engine)
         Base.metadata.create_all(bind=engine)
-        logger.info("Database initialized successfully (SQLite: edushield.db)")
+        migrate_db(engine, create_backup=False)
+        logger.info("Database initialized & migrated successfully (SQLite: edushield.db)")
     except Exception as exc:
         logger.error("Failed to initialize database: %s", exc, exc_info=True)
         raise
@@ -327,11 +630,6 @@ def init_db():
 def get_db():
     """
     FastAPI dependency — yield một session và tự đóng khi request kết thúc.
-
-    Usage:
-        @app.get("/api/violations")
-        def list_violations(db: Session = Depends(get_db)):
-            ...
     """
     db = SessionLocal()
     try:

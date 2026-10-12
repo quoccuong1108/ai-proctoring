@@ -1,0 +1,9 @@
+﻿edushield.db*
+cloudflared*
+.vscode/
+venv/
+.venv/
+mobile/build/
+*.log
+backend/snapshots/*
+!backend/snapshots/.gitkeep

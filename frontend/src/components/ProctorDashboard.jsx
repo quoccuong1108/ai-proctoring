@@ -39,6 +39,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import ExamManagement from "./ExamManagement";
+import EnrollmentApproval from "./EnrollmentApproval";
 /* ─────────────────────────────────────────────────────────
    Constants
    ────────────────────────────────────────────────────────── */
@@ -46,12 +47,18 @@ import ExamManagement from "./ExamManagement";
 import { API_BASE_URL } from "../config";
 const AUTO_REFRESH_INTERVAL_MS = 10000;
 
+function getSavedDashboardView() {
+  try {
+    return JSON.parse(sessionStorage.getItem("teacher_dashboard_view") || "{}");
+  } catch {
+    sessionStorage.removeItem("teacher_dashboard_view");
+    return {};
+  }
+}
+
 /* ─────────────────────────────────────────────────────────
    AuthedImage — Ảnh snapshot yêu cầu xác thực Token
-   API /api/snapshots/{filename} nay bắt buộc có token giám thị, nhưng thẻ <img src="..."> tiêu
-   chuẩn của trình duyệt KHÔNG gửi kèm được custom header. Component này tự fetch() ảnh có gắn
-   header Authorization/X-Proctor-Token, rồi chuyển kết quả thành Object URL để hiển thị,
-   thay vì nhúng token vào query string (tránh lộ token qua URL/lịch sử trình duyệt/log server).
+   Thẻ <img> không gửi được Authorization header, nên fetch ảnh và hiển thị qua Object URL.
    ────────────────────────────────────────────────────────── */
 function AuthedImage({ url, token, alt, className, onClick }) {
   const [blobSrc, setBlobSrc] = useState(null);
@@ -67,7 +74,7 @@ function AuthedImage({ url, token, alt, className, onClick }) {
     let objectUrl = null;
     setFailed(false);
 
-    fetch(url, { headers: { "X-Proctor-Token": token } })
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.blob();
@@ -179,9 +186,17 @@ const VIOLATION_TYPE_CONFIG = {
    ProctorDashboard Component
    ────────────────────────────────────────────────────────── */
 
-export default function ProctorDashboard({ teacherId, authToken, onLogout }) {
-  // ── Tab điều hướng cấp cao nhất: 'giamsat' (Giám sát chống gian lận, mặc định) | 'dethi' (Quản lý đề thi) ──
-  const [activeTab, setActiveTab] = useState("giamsat");
+export default function ProctorDashboard({ teacherId, teacherName, authToken, onLogout }) {
+  const [savedView] = useState(getSavedDashboardView);
+  // ── Tab điều hướng cấp cao nhất: 'giamsat' | 'duyet' | 'dethi' ──
+  const tabStorageKey = `teacher_workspace_tab:${teacherId || "default"}`;
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = sessionStorage.getItem(tabStorageKey);
+    return ["giamsat", "duyet", "dethi"].includes(savedTab)
+      ? savedTab
+      : "giamsat";
+  });
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
 
   // ── State ──
   const [violations, setViolations] = useState([]);
@@ -197,22 +212,38 @@ export default function ProctorDashboard({ teacherId, authToken, onLogout }) {
   const [deletingAll, setDeletingAll] = useState(false);
 
   // ── Điều hướng Giao diện: 'folders' = lưới thư mục theo sinh viên (mặc định) | 'detail' = bảng chi tiết ──
-  const [viewMode, setViewMode] = useState("folders");
-  const [studentSearch, setStudentSearch] = useState("");
+  const [viewMode, setViewMode] = useState(
+    savedView.viewMode === "detail" ? "detail" : "folders",
+  );
+  const [studentSearch, setStudentSearch] = useState(savedView.studentSearch || "");
 
   // ── Filters (áp dụng cho viewMode === 'detail') ──
-  const [filterStudent, setFilterStudent] = useState("");
-  const [filterType, setFilterType] = useState("");
-  const [searchText, setSearchText] = useState("");
+  const [filterStudent, setFilterStudent] = useState(savedView.filterStudent || "");
+  const [filterType, setFilterType] = useState(savedView.filterType || "");
+  const [searchText, setSearchText] = useState(savedView.searchText || "");
 
   const refreshTimerRef = useRef(null);
   const mountedRef = useRef(true);
 
-  // Header xác thực Giám thị: gắn kèm vào MỌI request tới API bảo vệ bằng token
+  useEffect(() => {
+    sessionStorage.setItem(tabStorageKey, activeTab);
+  }, [tabStorageKey, activeTab]);
+
+  useEffect(() => {
+    sessionStorage.setItem(
+      "teacher_dashboard_view",
+      JSON.stringify({ viewMode, studentSearch, filterStudent, filterType, searchText }),
+    );
+  }, [viewMode, studentSearch, filterStudent, filterType, searchText]);
+
+  // Gắn Bearer token vào mọi request API giảng viên.
   const authHeaders = useMemo(
-    () => ({ "X-Proctor-Token": authToken || "" }),
+    () => ({
+      Authorization: `Bearer ${authToken || ""}`,
+    }),
     [authToken],
   );
+
 
   // ──────────────────────────────────────────────────────
   // Fetch violations from API
@@ -501,6 +532,21 @@ export default function ProctorDashboard({ teacherId, authToken, onLogout }) {
             Giám sát thi
           </button>
           <button
+            aria-current={activeTab === "duyet" ? "page" : undefined}
+            className={`flex items-center justify-between ${activeTab === "duyet" ? "active" : ""}`}
+            onClick={() => setActiveTab("duyet")}
+          >
+            <span className="flex items-center gap-2">
+              <Users size={19} />
+              Duyệt thí sinh
+            </span>
+            {pendingApprovalCount > 0 && (
+              <span className="px-2 py-0.5 text-xs font-bold bg-amber-500 text-white rounded-full">
+                {pendingApprovalCount}
+              </span>
+            )}
+          </button>
+          <button
             aria-current={activeTab === "dethi" ? "page" : undefined}
             className={activeTab === "dethi" ? "active" : ""}
             onClick={() => setActiveTab("dethi")}
@@ -520,20 +566,25 @@ export default function ProctorDashboard({ teacherId, authToken, onLogout }) {
         <div className="sidebar-account">
           <span className="account-avatar">GV</span>
           <div>
-            <strong>{teacherId}</strong>
-            <span>Giảng viên / Giám thị</span>
+            <strong>{teacherName || teacherId}</strong>
+            <span>{teacherName ? `${teacherId} · Giảng viên` : "Giảng viên / Giám thị"}</span>
           </div>
           <button onClick={onLogout} aria-label="Đăng xuất" title="Đăng xuất">
             <LogOut size={18} />
           </button>
         </div>
+
       </aside>
       <header className="workspace-header">
         <div className="workspace-header-inner">
           <div className="breadcrumb">
             Không gian giảng viên <span>/</span>
             <strong>
-              {activeTab === "giamsat" ? "Giám sát thi" : "Đề thi & kết quả"}
+              {activeTab === "giamsat"
+                ? "Giám sát thi"
+                : activeTab === "duyet"
+                  ? "Duyệt thí sinh"
+                  : "Đề thi & kết quả"}
             </strong>
           </div>
           {/* Nav + Actions */}
@@ -616,17 +667,26 @@ export default function ProctorDashboard({ teacherId, authToken, onLogout }) {
         <section className="page-heading">
           <div>
             <p className="eyebrow">
-              EDUSHIELD / {activeTab === "giamsat" ? "GIÁM SÁT" : "ĐỀ THI"}
+              EDUSHIELD /{" "}
+              {activeTab === "giamsat"
+                ? "GIÁM SÁT"
+                : activeTab === "duyet"
+                  ? "DUYỆT THÍ SINH"
+                  : "ĐỀ THI"}
             </p>
             <h1>
               {activeTab === "giamsat"
                 ? "Tổng quan giám sát"
-                : "Đề thi & kết quả"}
+                : activeTab === "duyet"
+                  ? "Phê duyệt thí sinh vào thi"
+                  : "Đề thi & kết quả"}
             </h1>
             <p>
               {activeTab === "giamsat"
                 ? "Theo dõi vi phạm, tra cứu sinh viên và kiểm tra ảnh chứng cứ."
-                : "Chuẩn bị đề thi, công bố và theo dõi kết quả tại đây."}
+                : activeTab === "duyet"
+                  ? "Kiểm tra yêu cầu xin vào phòng thi và cấp quyền làm bài cho sinh viên."
+                  : "Chuẩn bị đề thi, công bố và theo dõi kết quả tại đây."}
             </p>
           </div>
           {activeTab === "giamsat" && (
@@ -640,7 +700,12 @@ export default function ProctorDashboard({ teacherId, authToken, onLogout }) {
             </span>
           )}
         </section>
-        {activeTab === "dethi" ? (
+        {activeTab === "duyet" ? (
+          <EnrollmentApproval
+            authToken={authToken}
+            onPendingCountChange={setPendingApprovalCount}
+          />
+        ) : activeTab === "dethi" ? (
           <ExamManagement authToken={authToken} teacherId={teacherId} />
         ) : (
           <>

@@ -47,6 +47,32 @@ const STATUS_BADGE = {
   },
 };
 
+function formatVietnamDateTime(date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+}
+
+function vietnamLocalToUtcNaive(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) throw new Error("Vui lòng chọn thời điểm mở và đóng đề hợp lệ.");
+  const [, year, month, day, hour, minute] = match;
+  return new Date(
+    Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) -
+      7 * 60 * 60 * 1000,
+  )
+    .toISOString()
+    .slice(0, 19);
+}
+
 /* ─────────────────────────────────────────────────────────
    Nút copy mã đề thi vào clipboard, kèm phản hồi trực quan
    ────────────────────────────────────────────────────────── */
@@ -86,11 +112,21 @@ function PublishModal({ exam, authHeaders, onClose, onPublished }) {
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [passScore, setPassScore] = useState(5);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [startTime, setStartTime] = useState(() =>
+    formatVietnamDateTime(new Date()),
+  );
+  const [endTime, setEndTime] = useState(() =>
+    formatVietnamDateTime(new Date(new Date().getTime() + 60 * 60 * 1000)),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!startTime || !endTime || endTime <= startTime) {
+      setError("Giờ kết thúc phải sau giờ bắt đầu.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -101,6 +137,8 @@ function PublishModal({ exam, authHeaders, onClose, onPublished }) {
           duration_minutes: Number(durationMinutes),
           pass_score: Number(passScore),
           shuffle_questions: shuffleQuestions,
+          start_time: vietnamLocalToUtcNaive(startTime),
+          end_time: vietnamLocalToUtcNaive(endTime),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -115,7 +153,7 @@ function PublishModal({ exam, authHeaders, onClose, onPublished }) {
 
   return (
     <ModalShell title="Công bố đề thi" onClose={onClose} busy={submitting}>
-      <div className="glass-card w-full max-w-md p-6 space-y-5">
+      <div className="glass-card w-full max-w-md max-h-[90vh] overflow-y-auto p-6 space-y-5">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-text-primary">
             Công bố đề thi
@@ -136,6 +174,34 @@ function PublishModal({ exam, authHeaders, onClose, onPublished }) {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <p className="text-xs text-text-muted">
+            Thời gian được nhập theo múi giờ Asia/Ho_Chi_Minh và gửi lên máy chủ
+            dưới dạng UTC.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-text-muted mb-1.5 uppercase tracking-wide">
+              Thời điểm bắt đầu (giờ Việt Nam)
+            </label>
+            <input
+              type="datetime-local"
+              required
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl bg-bg-card border border-border-default text-text-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-text-muted mb-1.5 uppercase tracking-wide">
+              Thời điểm kết thúc (giờ Việt Nam)
+            </label>
+            <input
+              type="datetime-local"
+              required
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl bg-bg-card border border-border-default text-text-primary"
+            />
+          </div>
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1.5 uppercase tracking-wide">
               Thời gian làm bài (phút)
@@ -198,7 +264,7 @@ function PublishModal({ exam, authHeaders, onClose, onPublished }) {
             ) : (
               <Send className="w-4 h-4" />
             )}
-            {submitting ? "Đang công bố..." : "Công bố ngay"}
+            {submitting ? "Đang công bố..." : "Công bố đề thi"}
           </button>
         </form>
       </div>
@@ -401,9 +467,10 @@ function ResultsModal({ exam, authHeaders, onClose }) {
 /* ─────────────────────────────────────────────────────────
    Panel Upload đề thi mới
    ────────────────────────────────────────────────────────── */
-function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
+function UploadPanel({ authHeaders, teacherId, subjects, onClose, onUploaded }) {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
   const [examCode, setExamCode] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(""); // string hoặc {message, errors}
@@ -411,7 +478,12 @@ function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const normalizedSubject = subject.trim().replace(/\s+/g, " ");
     if (!file || !title.trim()) return;
+    if (!normalizedSubject) {
+      setUploadError("Môn học không được để trống.");
+      return;
+    }
 
     setUploading(true);
     setUploadError("");
@@ -420,12 +492,13 @@ function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("title", title.trim());
+    formData.append("subject", normalizedSubject);
     if (examCode.trim()) formData.append("exam_code", examCode.trim());
     if (teacherId) formData.append("created_by", teacherId);
 
+
     try {
-      // LƯU Ý: không tự set 'Content-Type' — trình duyệt tự thêm boundary đúng cho multipart/form-data.
-      // authHeaders chỉ chứa 'X-Proctor-Token' nên spread trực tiếp là an toàn.
+      // Không tự set Content-Type để trình duyệt thêm multipart boundary.
       const res = await fetch(`${API_BASE_URL}/exams/upload`, {
         method: "POST",
         headers: authHeaders,
@@ -463,6 +536,7 @@ function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
   const resetForm = () => {
     setFile(null);
     setTitle("");
+    setSubject("");
     setExamCode("");
     setUploadError("");
     setUploadSuccess(null);
@@ -503,6 +577,27 @@ function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
 
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1.5 uppercase tracking-wide">
+                Môn học *
+              </label>
+              <input
+                type="text"
+                list="teacher-subjects"
+                required
+                placeholder="VD: Trí tuệ nhân tạo, Lập trình Web, Cơ sở dữ liệu..."
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl bg-bg-card border border-border-default text-text-primary
+                           placeholder-text-muted focus:outline-none focus:border-accent-cyan/60 focus:ring-1 focus:ring-accent-cyan/40"
+              />
+              <datalist id="teacher-subjects">
+                {subjects.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5 uppercase tracking-wide">
                 Mã đề thi (tuỳ chọn — để trống sẽ tự sinh)
               </label>
               <input
@@ -514,6 +609,7 @@ function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
                            placeholder-text-muted focus:outline-none focus:border-accent-cyan/60 focus:ring-1 focus:ring-accent-cyan/40"
               />
             </div>
+
 
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1.5 uppercase tracking-wide">
@@ -580,7 +676,7 @@ function UploadPanel({ authHeaders, teacherId, onClose, onUploaded }) {
 
             <button
               type="submit"
-              disabled={uploading || !file || !title.trim()}
+              disabled={uploading || !file || !title.trim() || !subject.trim()}
               className="w-full py-3 rounded-xl font-bold text-white bg-accent-cyan
                          hover:brightness-95 shadow-sm
                          disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer
@@ -673,12 +769,16 @@ export default function ExamManagement({ authToken, teacherId }) {
   const [resultsExam, setResultsExam] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [closingId, setClosingId] = useState(null);
   const [deleteError, setDeleteError] = useState("");
 
   const authHeaders = useMemo(
-    () => ({ "X-Proctor-Token": authToken || "" }),
+    () => ({
+      Authorization: `Bearer ${authToken || ""}`,
+    }),
     [authToken],
   );
+
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const visibleExams = exams.filter(
@@ -688,6 +788,14 @@ export default function ExamManagement({ authToken, teacherId }) {
         .toLocaleLowerCase("vi")
         .includes(query.trim().toLocaleLowerCase("vi")),
   );
+  const subjects = useMemo(() => {
+    const uniqueSubjects = new Map();
+    exams.forEach((exam) => {
+      const name = (exam.subject || "").trim().replace(/\s+/g, " ");
+      if (name) uniqueSubjects.set(name.toLocaleLowerCase("vi"), name);
+    });
+    return [...uniqueSubjects.values()].sort((a, b) => a.localeCompare(b, "vi"));
+  }, [exams]);
 
   const fetchExams = useCallback(async () => {
     try {
@@ -728,6 +836,26 @@ export default function ExamManagement({ authToken, teacherId }) {
       setDeleteError(err.message || "Xóa đề thi thất bại");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleCloseExam = async (examId) => {
+    setClosingId(examId);
+    setDeleteError("");
+    try {
+      const res = await fetch(`${API_BASE_URL}/exams/${examId}/close`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+      setExams((previous) =>
+        previous.map((exam) => (exam.id === examId ? data : exam)),
+      );
+    } catch (err) {
+      setDeleteError(err.message || "Đóng đề thi thất bại");
+    } finally {
+      setClosingId(null);
     }
   };
 
@@ -903,6 +1031,27 @@ export default function ExamManagement({ authToken, teacherId }) {
                           </button>
                         )}
                         {exam.status === "PUBLISHED" && (
+                          <>
+                          <button
+                            onClick={() => handleCloseExam(exam.id)}
+                            disabled={closingId === exam.id}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                                       bg-slate-500/10 text-slate-700 border border-slate-500/30
+                                       hover:bg-slate-500/20 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {closingId === exam.id ? "Đang đóng..." : "Đóng đề"}
+                          </button>
+                          <button
+                            onClick={() => setResultsExam(exam)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                                       bg-green-500/10 text-green-700 border border-green-500/30
+                                       hover:bg-green-500/20 transition-all cursor-pointer"
+                          >
+                            <BarChart3 className="w-3.5 h-3.5" /> Xem điểm
+                          </button>
+                          </>
+                        )}
+                        {exam.status === "CLOSED" && (
                           <button
                             onClick={() => setResultsExam(exam)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
@@ -953,6 +1102,7 @@ export default function ExamManagement({ authToken, teacherId }) {
         <UploadPanel
           authHeaders={authHeaders}
           teacherId={teacherId}
+          subjects={subjects}
           onClose={() => setShowUpload(false)}
           onUploaded={fetchExams}
         />

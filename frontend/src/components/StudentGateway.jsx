@@ -32,7 +32,7 @@ export default function StudentGateway({
               : "Kiểm tra thông tin, chuẩn bị không gian yên tĩnh và tập trung thể hiện kiến thức của mình."}
           </p>
           <ol className="gateway-steps">
-            {["Nhập mã đề thi", "Kiểm tra & bắt đầu", "Hoàn thành bài thi"].map(
+            {["Chọn môn & Đề", "Duyệt & Bắt đầu", "Hoàn thành bài thi"].map(
               (label, i) => (
                 <li
                   key={label}
@@ -55,7 +55,7 @@ export default function StudentGateway({
           </ol>
           <div className="gateway-tips">
             <span>
-              <BookOpen size={17} /> Mã đề do giảng viên cung cấp
+              <BookOpen size={17} /> Chọn môn học và đề thi có sẵn
             </span>
             <span>
               <Camera size={17} /> Cho phép camera khi bắt đầu

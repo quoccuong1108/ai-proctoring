@@ -7,44 +7,180 @@ import {
   CheckCircle2,
   LockKeyhole,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
+import { API_BASE_URL } from "./config";
 const StudentExam = lazy(() => import("./components/StudentExam"));
 const ProctorDashboard = lazy(() => import("./components/ProctorDashboard"));
 
 export default function App() {
   const [role, setRole] = useState("student");
-  const [code, setCode] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [proctorToken, setProctorToken] = useState("");
-  const [activeRole, setActiveRole] = useState(null);
+  const [savedTeacherSession] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("teacher_session") || "null");
+    } catch {
+      sessionStorage.removeItem("teacher_session");
+      return null;
+    }
+  });
+  const [code, setCode] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("exam_student_identity") || "{}").studentId || "";
+    } catch {
+      return "";
+    }
+  });
+  const [fullName, setFullName] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("exam_student_identity") || "{}").studentName || "";
+    } catch {
+      return "";
+    }
+  });
+  const [teacherPassword, setTeacherPassword] = useState("");
+  const [proctorToken, setProctorToken] = useState(
+    () => savedTeacherSession?.access_token || "",
+  );
+  const [teacherInfo, setTeacherInfo] = useState(
+    () => savedTeacherSession?.teacher || null,
+  );
+  const [activeRole, setActiveRole] = useState(() => {
+    if (savedTeacherSession?.access_token && savedTeacherSession?.teacher) {
+      return "proctor";
+    }
+    return sessionStorage.getItem("exam_student_identity") ? "student" : null;
+  });
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
   const normalizedCode = code.trim().toUpperCase();
-  const handleLogout = () => {
+
+
+  const handleLogout = async () => {
+    if (activeRole === "proctor" && proctorToken) {
+      try {
+        const logoutUrl = API_BASE_URL.endsWith("/api")
+          ? `${API_BASE_URL}/auth/teacher/logout`
+          : `${API_BASE_URL}/api/auth/teacher/logout`;
+        await fetch(logoutUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${proctorToken}`,
+          },
+        });
+      } catch {
+        // Tiếp tục đăng xuất cục bộ kể cả khi mạng lỗi
+      }
+    }
+    sessionStorage.removeItem("exam_session_token");
+    sessionStorage.removeItem("exam_request_token");
+    sessionStorage.removeItem("exam_selected_info");
+    sessionStorage.removeItem("exam_selected_choice");
+    sessionStorage.removeItem("exam_selected_subject");
+    sessionStorage.removeItem("exam_student_identity");
+    sessionStorage.removeItem("exam_started");
+    sessionStorage.removeItem("exam_progress");
+    sessionStorage.removeItem("exam_result");
+    sessionStorage.removeItem("teacher_session");
+    sessionStorage.removeItem("teacher_dashboard_view");
+    if (teacherInfo?.teacher_code) {
+      sessionStorage.removeItem(
+        `teacher_workspace_tab:${teacherInfo.teacher_code}`,
+      );
+    }
+    sessionStorage.removeItem("teacher_enrollment_view");
     setActiveRole(null);
     setCode("");
     setFullName("");
     setProctorToken("");
+    setTeacherPassword("");
+    setTeacherInfo(null);
     setError("");
   };
-  function handleLogin(event) {
+
+  async function handleLogin(event) {
     event.preventDefault();
-    if (!normalizedCode.startsWith(role === "student" ? "SV" : "GV")) {
+    setError("");
+
+    const validCode =
+      role === "student"
+        ? normalizedCode.startsWith("SV")
+        : /^GV-[A-Z0-9]{4}$/.test(normalizedCode);
+    if (!validCode) {
       setError(
-        `Mã ${role === "student" ? "sinh viên phải bắt đầu bằng SV" : "giảng viên phải bắt đầu bằng GV"}.`,
+        role === "student"
+          ? "Mã sinh viên phải bắt đầu bằng SV."
+          : "Mã giảng viên phải đúng định dạng GV-xxxx, ví dụ GV-2026.",
       );
       return;
     }
-    if (role === "student" && !fullName.trim()) {
-      setError("Vui lòng nhập họ và tên.");
+
+    if (role === "student") {
+      if (!fullName.trim()) {
+        setError("Vui lòng nhập họ và tên.");
+        return;
+      }
+      sessionStorage.setItem(
+        "exam_student_identity",
+        JSON.stringify({ studentId: normalizedCode, studentName: fullName.trim() }),
+      );
+      setActiveRole("student");
       return;
     }
-    if (role === "proctor" && !proctorToken.trim()) {
-      setError("Vui lòng nhập mã xác thực giảng viên.");
+
+    // Luồng đăng nhập Giảng viên qua API
+    if (!teacherPassword) {
+      setError("Vui lòng nhập mật khẩu tài khoản giảng viên.");
       return;
     }
-    setError("");
-    setActiveRole(role);
+
+    setIsLoading(true);
+    try {
+      const loginUrl = API_BASE_URL.endsWith("/api")
+        ? `${API_BASE_URL}/auth/teacher/login`
+        : `${API_BASE_URL}/api/auth/teacher/login`;
+
+      const res = await fetch(loginUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacher_code: normalizedCode,
+          password: teacherPassword,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(
+          data?.detail ||
+            (res.status === 429
+              ? "Quá nhiều lần đăng nhập sai. Vui lòng thử lại sau một phút."
+              : "Mã giảng viên hoặc mật khẩu không chính xác."),
+        );
+      }
+
+      const token = data.access_token;
+      const teacher = data.teacher;
+      if (typeof token !== "string" || !token || !teacher) {
+        throw new Error("Máy chủ trả về thông tin đăng nhập không hợp lệ.");
+      }
+
+      setProctorToken(token);
+      setTeacherInfo(teacher);
+      sessionStorage.setItem(
+        "teacher_session",
+        JSON.stringify({ access_token: token, teacher }),
+      );
+      setTeacherPassword("");
+      setActiveRole("proctor");
+    } catch (err) {
+      setError(err.message || "Không thể kết nối tới máy chủ.");
+    } finally {
+      setIsLoading(false);
+    }
   }
+
   if (activeRole === "student")
     return (
       <Suspense fallback={<LoadingScreen />}>
@@ -55,16 +191,19 @@ export default function App() {
         />
       </Suspense>
     );
+
   if (activeRole === "proctor")
     return (
       <Suspense fallback={<LoadingScreen />}>
         <ProctorDashboard
-          teacherId={normalizedCode}
+          teacherId={teacherInfo?.teacher_code || normalizedCode}
+          teacherName={teacherInfo?.full_name || "Giảng viên"}
           authToken={proctorToken.trim()}
           onLogout={handleLogout}
         />
       </Suspense>
     );
+
   return (
     <main className="login-page">
       <section className="login-story">
@@ -142,6 +281,7 @@ export default function App() {
                 onClick={() => {
                   setRole(key);
                   setCode("");
+                  setTeacherPassword("");
                   setError("");
                 }}
               >
@@ -178,15 +318,15 @@ export default function App() {
               </>
             ) : (
               <>
-                <label htmlFor="proctor-token">Mã xác thực</label>
+                <label htmlFor="teacher-password">Mật khẩu</label>
                 <input
-                  id="proctor-token"
+                  id="teacher-password"
                   type="password"
                   autoComplete="current-password"
                   required
-                  value={proctorToken}
-                  onChange={(e) => setProctorToken(e.target.value)}
-                  placeholder="Mã xác thực do quản trị viên cung cấp"
+                  value={teacherPassword}
+                  onChange={(e) => setTeacherPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu tài khoản giảng viên"
                 />
               </>
             )}
@@ -196,17 +336,31 @@ export default function App() {
                 {error}
               </p>
             )}
-            <button className="primary-button login-submit" type="submit">
-              {role === "student" ? "Vào không gian thi" : "Vào trang quản lý"}
-              <ArrowRight size={18} />
+            <button
+              className="primary-button login-submit"
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Đang xác thực…
+                </>
+              ) : (
+                <>
+                  {role === "student" ? "Vào không gian thi" : "Đăng nhập quản lý"}
+                  <ArrowRight size={18} />
+                </>
+              )}
             </button>
           </form>
           <p className="login-note">
             <LockKeyhole size={16} />
             {role === "student"
-              ? "Bạn sẽ nhập mã đề thi ở bước tiếp theo."
-              : "Mã xác thực được kiểm tra khi tải dữ liệu quản lý."}
+              ? "Bạn sẽ chọn môn và đề thi ở bước tiếp theo."
+              : "Tài khoản giảng viên do quản trị viên cấp (dùng CLI create_teacher.py)."}
           </p>
+
         </div>
         <p className="login-help">
           EduShield AI · Hệ thống giám sát thi trực tuyến

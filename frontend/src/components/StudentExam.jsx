@@ -43,10 +43,12 @@ import {
   Loader2,
   Cpu,
   LogOut,
-  KeyRound,
   Trophy,
   XCircle,
   FileQuestion,
+  Hourglass,
+  ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 import {
   FaceLandmarker,
@@ -160,14 +162,84 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   const [aiReady, setAiReady] = useState(false);
   const [aiInitError, setAiInitError] = useState("");
 
-  // ── Trạng thái luồng "Nhập mã đề thi" — cổng vào trước khi bắt đầu làm bài thật ──
-  // isExamStarted chỉ chuyển true SAU KHI tải thành công đề thi qua API và SV bấm "Bắt đầu làm bài";
-  // camera/AI và đồng hồ đếm ngược (2 useEffect bên dưới) đều phụ thuộc vào cờ này.
+  // ── Trạng thái luồng chọn đề và phiên thi ──
   const [isExamStarted, setIsExamStarted] = useState(false);
-  const [examCodeInput, setExamCodeInput] = useState("");
   const [examData, setExamData] = useState(null); // { exam_id, exam_code, title, duration_minutes, questions }
   const [examLoading, setExamLoading] = useState(false);
   const [examLoadError, setExamLoadError] = useState("");
+
+  // Giai đoạn C: Đề thi theo môn & Phê duyệt thí sinh
+  const [availableData, setAvailableData] = useState([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [availableError, setAvailableError] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState(
+    () => sessionStorage.getItem("exam_selected_subject") || "",
+  );
+  const [selectedExamChoice, setSelectedExamChoice] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("exam_selected_choice") || "null");
+    } catch {
+      sessionStorage.removeItem("exam_selected_choice");
+      return null;
+    }
+  });
+  const [selectedExamInfo, setSelectedExamInfo] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("exam_selected_info") || "null");
+    } catch {
+      return null;
+    }
+  });
+  const [enrollmentState, setEnrollmentState] = useState(() => {
+    if (sessionStorage.getItem("exam_session_token")) return "APPROVED";
+    if (sessionStorage.getItem("exam_request_token")) return "PENDING";
+    return null;
+  }); // 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED'
+  const [rejectReason, setRejectReason] = useState("");
+  const [requestToken, setRequestToken] = useState(() => {
+    return sessionStorage.getItem("exam_request_token") || "";
+  });
+  const [cancelingJoinRequest, setCancelingJoinRequest] = useState(false);
+  useEffect(() => {
+    if (selectedExamInfo) {
+      sessionStorage.setItem("exam_selected_info", JSON.stringify(selectedExamInfo));
+    } else {
+      sessionStorage.removeItem("exam_selected_info");
+    }
+  }, [selectedExamInfo]);
+  useEffect(() => {
+    if (selectedSubject) {
+      sessionStorage.setItem("exam_selected_subject", selectedSubject);
+    } else {
+      sessionStorage.removeItem("exam_selected_subject");
+    }
+    if (selectedExamChoice) {
+      sessionStorage.setItem("exam_selected_choice", JSON.stringify(selectedExamChoice));
+    } else {
+      sessionStorage.removeItem("exam_selected_choice");
+    }
+  }, [selectedSubject, selectedExamChoice]);
+  useEffect(() => {
+    if (requestToken) {
+      sessionStorage.setItem("exam_request_token", requestToken);
+    } else {
+      sessionStorage.removeItem("exam_request_token");
+    }
+  }, [requestToken]);
+  const [examSessionToken, setExamSessionToken] = useState(() => {
+    return sessionStorage.getItem("exam_session_token") || "";
+  });
+  const examSessionTokenRef = useRef(examSessionToken);
+  useEffect(() => {
+    examSessionTokenRef.current = examSessionToken;
+    if (examSessionToken) {
+      sessionStorage.setItem("exam_session_token", examSessionToken);
+    } else {
+      sessionStorage.removeItem("exam_session_token");
+    }
+  }, [examSessionToken]);
+
+
   // Trạng thái bấm "Bắt đầu làm bài": gọi server ghi giờ bắt đầu rồi mới chạy đồng hồ/camera
   const [startingExam, setStartingExam] = useState(false);
   const [startError, setStartError] = useState("");
@@ -175,7 +247,14 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   // ── Trạng thái nộp bài & kết quả chấm điểm tự động trả về từ backend ──
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [examResult, setExamResult] = useState(null); // { total_score, correct_count, total_questions, pass_score, passed }
+  const [examResult, setExamResult] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("exam_result") || "null");
+    } catch {
+      sessionStorage.removeItem("exam_result");
+      return null;
+    }
+  }); // { total_score, correct_count, total_questions, pass_score, passed }
   const hasAutoSubmittedRef = useRef(false); // chặn gọi nộp bài 2 lần khi hết giờ (StrictMode double-invoke)
 
   // Vị trí câu hỏi hiện tại đang hiển thị (0-indexed)
@@ -266,7 +345,8 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
    */
   const sendViolation = useCallback(
     async (violationType, snapshotBase64) => {
-      if (!studentId) return;
+      const activeToken = examSessionTokenRef.current;
+      if (!studentId || !activeToken) return;
 
       // Kiểm tra thời gian giãn cách (cooldown) giữa 2 lần gửi cùng loại vi phạm
       const now = Date.now();
@@ -276,8 +356,6 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
 
       // Gói tin chuẩn hóa gửi lên API
       const payload = {
-        student_id: studentId,
-        student_name: studentName || null,
         violation_type: violationType,
         captured_at: new Date().toISOString(),
         image_base64: snapshotBase64 || null,
@@ -304,9 +382,11 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
 
       // Gửi yêu cầu bất đồng bộ đến máy chủ giám sát
       try {
+        const headers = { "Content-Type": "application/json" };
+        headers["X-Exam-Session"] = activeToken;
         const response = await fetch(`${API_BASE_URL}/violations`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(payload),
         });
 
@@ -322,7 +402,7 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
         console.error("Lỗi kết nối khi gửi bản tin vi phạm tới backend:", err);
       }
     },
-    [studentId, studentName],
+    [studentId],
   );
 
   // Gắn hàm báo vi phạm lockdown (chuyển tab / mất focus / thoát fullscreen) lên server.
@@ -714,20 +794,31 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
       .slice(0, 100);
   }, [violationLogs, lockdownViolations]);
 
-  // ── Hàm tải đề thi theo mã, gọi khi thí sinh bấm "Vào phòng thi" ở màn hình nhập mã ──
-  const loadExam = useCallback(async (rawCode) => {
+  // ── Hàm tải đề thi sau khi phiên tham gia đã được duyệt ──
+  const loadExam = useCallback(async (rawCode, tokenOverride) => {
     const code = (rawCode || "").trim();
     if (!code) {
       setExamLoadError("Vui lòng nhập mã đề thi");
-      return;
+      return null;
     }
 
     setExamLoading(true);
     setExamLoadError("");
 
     try {
+      const activeToken =
+        tokenOverride ||
+        examSessionTokenRef.current ||
+        sessionStorage.getItem("exam_session_token");
+      if (!activeToken) {
+        throw new Error("Phiên thi không hợp lệ. Vui lòng gửi lại yêu cầu vào thi.");
+      }
+      const headers = {};
+      headers["X-Exam-Session"] = activeToken;
+
       const response = await fetch(
         `${API_BASE_URL}/exams/code/${encodeURIComponent(code)}/take`,
+        { headers }
       );
       const data = await response.json().catch(() => ({}));
 
@@ -741,27 +832,74 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
         throw new Error("Đề thi này chưa có câu hỏi hợp lệ nào");
       }
 
-      setExamData(data);
-      setTimeLeft(Math.max(1, data.duration_minutes || 0) * 60);
-      setCurrentQuestion(0);
-      setAnswers({});
-      setExamResult(null);
+      let savedProgress = null;
+      try {
+        savedProgress = JSON.parse(
+          sessionStorage.getItem("exam_progress") || "null",
+        );
+      } catch {
+        sessionStorage.removeItem("exam_progress");
+      }
+      const matchingProgress =
+        savedProgress?.exam_id === data.exam_id ? savedProgress : null;
+      let examForSession = data;
+      if (
+        Array.isArray(matchingProgress?.question_order) &&
+        matchingProgress.question_order.length === data.questions.length
+      ) {
+        const questionById = new Map(
+          data.questions.map((question) => [String(question.id), question]),
+        );
+        const orderedQuestions = matchingProgress.question_order.map((id) =>
+          questionById.get(String(id)),
+        );
+        if (orderedQuestions.every(Boolean)) {
+          examForSession = { ...data, questions: orderedQuestions };
+        }
+      }
+      const validQuestionIds = new Set(
+        examForSession.questions.map((question) => question.id),
+      );
+      const restoredAnswers = Object.fromEntries(
+        Object.entries(matchingProgress?.answers || {}).filter(
+          ([questionId, option]) =>
+            validQuestionIds.has(Number(questionId)) &&
+            ["A", "B", "C", "D"].includes(option),
+        ),
+      );
+      const restoredQuestion = Number(matchingProgress?.current_question);
+      const restoredQuestionId = matchingProgress?.current_question_id;
+      const questionIndexById = examForSession.questions.findIndex(
+        (question) => String(question.id) === String(restoredQuestionId),
+      );
+
+      setExamData(examForSession);
+      setTimeLeft(Math.max(1, examForSession.duration_minutes || 0) * 60);
+      setCurrentQuestion(
+        questionIndexById >= 0
+          ? questionIndexById
+          : Number.isInteger(restoredQuestion) &&
+          restoredQuestion >= 0 &&
+          restoredQuestion < examForSession.questions.length
+          ? restoredQuestion
+          : 0,
+      );
+      setAnswers(restoredAnswers);
       setSubmitError("");
       hasAutoSubmittedRef.current = false;
+      return examForSession;
     } catch (err) {
       console.error("Lỗi tải đề thi:", err);
       setExamLoadError(
         err.message || "Không thể kết nối máy chủ, vui lòng thử lại",
       );
+      return null;
     } finally {
       setExamLoading(false);
     }
   }, []);
 
   // ── Bấm "Bắt đầu làm bài": xin server ghi giờ bắt đầu và trả về thời gian CÒN LẠI ──
-  // Nhờ vậy tải lại trang / đổi thiết bị / ứng dụng bị treo nền không làm đồng hồ về lại từ đầu.
-  // Nếu server không phản hồi (mất mạng, lỗi 5xx) thì vẫn cho làm bài với toàn bộ thời lượng đề
-  // (giữ hành vi cũ) — không để lỗi mạng chặn sinh viên vào thi.
   const handleStartExam = useCallback(async () => {
     if (!examData || startingExam) return;
     setStartingExam(true);
@@ -769,19 +907,24 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
 
     let remainingSeconds = Math.max(1, examData.duration_minutes || 0) * 60;
     try {
+      const headers = { "Content-Type": "application/json" };
+      headers["X-Exam-Session"] = examSessionTokenRef.current;
       const response = await fetch(
         `${API_BASE_URL}/exams/code/${encodeURIComponent(examData.exam_code)}/start`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ student_id: studentId }),
+          headers,
         },
       );
       const data = await response.json().catch(() => ({}));
 
       if (response.status === 409) {
         // Đã nộp bài trước đó — chuyển thẳng sang màn hình "đã nộp"
-        setExamResult({ alreadySubmitted: true });
+        sessionStorage.removeItem("exam_progress");
+        sessionStorage.removeItem("exam_started");
+        const result = { alreadySubmitted: true };
+        sessionStorage.setItem("exam_result", JSON.stringify(result));
+        setExamResult(result);
         setStartingExam(false);
         return;
       }
@@ -794,17 +937,22 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
       if (response.ok && Number.isFinite(data.remaining_seconds)) {
         remainingSeconds = data.remaining_seconds;
       } else {
-        console.warn("Máy chủ không trả thời gian còn lại, dùng thời lượng đầy đủ của đề:", response.status);
+        throw new Error(
+          data.detail || `Không thể bắt đầu bài thi (HTTP ${response.status})`,
+        );
       }
     } catch (err) {
-      console.warn("Không gọi được API bắt đầu bài thi, dùng thời lượng đầy đủ của đề:", err);
+      setStartError(err.message || "Không thể bắt đầu bài thi. Vui lòng thử lại.");
+      setStartingExam(false);
+      return;
     }
 
     deadlineRef.current = Date.now() + remainingSeconds * 1000;
+    sessionStorage.setItem("exam_started", "1");
     setTimeLeft(remainingSeconds);
     setStartingExam(false);
     setIsExamStarted(true);
-  }, [examData, startingExam, studentId]);
+  }, [examData, startingExam]);
 
   // ── Hàm nộp bài — dùng chung cho cả nộp chủ động (bấm nút) và tự động nộp khi hết giờ ──
   const handleSubmitExam = useCallback(
@@ -821,14 +969,14 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
       }));
 
       try {
+        const headers = { "Content-Type": "application/json" };
+        headers["X-Exam-Session"] = examSessionTokenRef.current;
         const response = await fetch(
           `${API_BASE_URL}/exams/code/${encodeURIComponent(examData.exam_code)}/submit`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({
-              student_id: studentId,
-              student_name: studentName || null,
               answers: answerPayload,
               auto_submitted: autoSubmitted,
             }),
@@ -839,7 +987,11 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
         if (!response.ok) {
           // 409 = đã nộp bài trước đó rồi (ví dụ mở lại tab) — vẫn coi là kết thúc bài thi, không phải lỗi chặn
           if (response.status === 409) {
-            setExamResult({ alreadySubmitted: true });
+            sessionStorage.removeItem("exam_progress");
+            sessionStorage.removeItem("exam_started");
+            const result = { alreadySubmitted: true };
+            sessionStorage.setItem("exam_result", JSON.stringify(result));
+            setExamResult(result);
             return;
           }
           throw new Error(
@@ -847,6 +999,9 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
           );
         }
 
+        sessionStorage.removeItem("exam_progress");
+        sessionStorage.removeItem("exam_started");
+        sessionStorage.setItem("exam_result", JSON.stringify(data));
         setExamResult(data);
       } catch (err) {
         console.error("Lỗi nộp bài:", err);
@@ -857,7 +1012,7 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
         setSubmitting(false);
       }
     },
-    [examData, answers, studentId, studentName, submitting, examResult],
+    [examData, answers, submitting, examResult],
   );
 
   // ── Tự động nộp bài khi hết giờ làm bài (đúng yêu cầu FR-03 đặc tả: "không để mất dữ liệu
@@ -886,11 +1041,304 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
     setAnswers((prev) => ({ ...prev, [questionId]: optionLetter }));
   }, []);
 
+  useEffect(() => {
+    if (!isExamStarted || !examData || !examSessionToken) return;
+    sessionStorage.setItem(
+      "exam_progress",
+      JSON.stringify({
+        exam_id: examData.exam_id,
+        exam_code: examData.exam_code,
+        answers,
+        current_question: currentQuestion,
+        current_question_id: examData.questions[currentQuestion]?.id,
+        question_order: examData.questions.map((question) => question.id),
+        saved_at: Date.now(),
+      }),
+    );
+  }, [
+    isExamStarted,
+    examData,
+    examSessionToken,
+    answers,
+    currentQuestion,
+    timeLeft,
+  ]);
+
+  // ── Giai đoạn C: Tải danh sách đề thi khả dụng & xử lý xin vào thi ──
+  const fetchAvailableExams = useCallback(async () => {
+    try {
+      setLoadingAvailable(true);
+      setAvailableError("");
+      const res = await fetch(`${API_BASE_URL}/exams/available`);
+      if (!res.ok) throw new Error(`Lỗi tải danh mục đề thi (HTTP ${res.status})`);
+      const data = await res.json();
+      const subjects = Array.isArray(data) ? data : data.subjects || [];
+      setAvailableData(subjects);
+      setSelectedSubject((current) =>
+        subjects.some((item) => item.subject === current)
+          ? current
+          : "",
+      );
+      setSelectedExamChoice((current) => {
+        if (!current) return null;
+        const found = subjects.some((item) =>
+          item.exams?.some((exam) => exam.exam_id === current.exam_id),
+        );
+        return found ? current : null;
+      });
+    } catch (err) {
+      console.error("Lỗi tải đề thi khả dụng:", err);
+      setAvailableError(err.message || "Không thể tải danh sách đề thi");
+    } finally {
+      setLoadingAvailable(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAvailableExams();
+    const refreshTimer = setInterval(fetchAvailableExams, 30000);
+    return () => clearInterval(refreshTimer);
+  }, [fetchAvailableExams]);
+
+  // Gửi yêu cầu xin vào phòng thi
+  const handleJoinRequest = useCallback(
+    async (exam) => {
+      setSelectedExamInfo(exam);
+      setExamLoadError("");
+      setExamLoading(true);
+      try {
+        const headers = { "Content-Type": "application/json" };
+        const currentRequestToken = requestToken;
+        if (currentRequestToken) {
+          headers["X-Request-Token"] = currentRequestToken;
+        }
+        const res = await fetch(`${API_BASE_URL}/exams/${exam.exam_id}/join-request`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            student_id: studentId,
+            student_name: studentName,
+            device_info: navigator.userAgent,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.detail || `Không thể xin vào thi (HTTP ${res.status})`);
+        }
+        const nextRequestToken = data.request_token || currentRequestToken;
+        if (!nextRequestToken) {
+          throw new Error("Máy chủ không cấp mã yêu cầu vào thi.");
+        }
+        if (data.request_token) {
+          setExamSessionToken("");
+          examSessionTokenRef.current = "";
+          sessionStorage.removeItem("exam_started");
+          sessionStorage.removeItem("exam_result");
+          sessionStorage.removeItem("exam_progress");
+          setExamResult(null);
+        }
+        setRequestToken(nextRequestToken);
+        const examInfo = {
+          ...exam,
+          title: data.exam_title || exam.title,
+          exam_code: data.exam_code || exam.exam_code,
+        };
+        setSelectedExamInfo(examInfo);
+
+        if (data.status === "APPROVED") {
+          const activeToken = examSessionTokenRef.current;
+          if (!activeToken) {
+            setExamLoadError("Phiên thi đã được duyệt ở thiết bị khác. Hãy gửi lại yêu cầu từ thiết bị này.");
+            setEnrollmentState(null);
+            return;
+          }
+          setEnrollmentState("APPROVED");
+          await loadExam(examInfo.exam_code, activeToken);
+        } else if (data.status === "PENDING") {
+          setEnrollmentState("PENDING");
+        } else if (data.status === "REJECTED") {
+          setEnrollmentState("REJECTED");
+          setRequestToken("");
+          setExamSessionToken("");
+          setRejectReason(data.reject_reason || "Giảng viên đã từ chối yêu cầu vào phòng thi.");
+        }
+      } catch (err) {
+        setExamLoadError(err.message || "Không thể kết nối máy chủ");
+      } finally {
+        setExamLoading(false);
+      }
+    },
+    [studentId, studentName, loadExam, requestToken]
+  );
+
+  const handleCancelJoinRequest = useCallback(async () => {
+    if (!requestToken || cancelingJoinRequest) return;
+    setCancelingJoinRequest(true);
+    setExamLoadError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/exams/join-request/cancel`, {
+        method: "POST",
+        headers: { "X-Request-Token": requestToken },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || `Không thể hủy yêu cầu (HTTP ${response.status})`);
+      }
+      setRequestToken("");
+      setExamSessionToken("");
+      examSessionTokenRef.current = "";
+      sessionStorage.removeItem("exam_started");
+      setEnrollmentState(null);
+      setSelectedExamInfo(null);
+    } catch (err) {
+      setExamLoadError(err.message || "Không thể hủy yêu cầu vào thi.");
+    } finally {
+      setCancelingJoinRequest(false);
+    }
+  }, [requestToken, cancelingJoinRequest]);
+
+  // Poll cả yêu cầu đang chờ lẫn phiên đã duyệt để phát hiện giảng viên thu hồi quyền.
+  useEffect(() => {
+    if (
+      !["PENDING", "APPROVED"].includes(enrollmentState) ||
+      !requestToken ||
+      examResult
+    ) {
+      return;
+    }
+
+    let isMounted = true;
+    const pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/exams/join-request/status`, {
+          headers: { "X-Request-Token": requestToken },
+        });
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            clearInterval(pollTimer);
+            setRequestToken("");
+            setEnrollmentState(enrollmentState === "APPROVED" ? "REVOKED" : null);
+            setExamSessionToken("");
+            if (enrollmentState === "APPROVED") {
+              setIsExamStarted(false);
+              setExamData(null);
+              sessionStorage.removeItem("exam_progress");
+              sessionStorage.removeItem("exam_started");
+            }
+            setExamLoadError("Phiên yêu cầu không còn hợp lệ. Vui lòng gửi lại yêu cầu vào thi.");
+          }
+          return;
+        }
+        const data = await res.json();
+        if (!isMounted) return;
+
+        if (data.status === "APPROVED") {
+          if (data.exam_session_token) {
+            setExamSessionToken(data.exam_session_token);
+            setEnrollmentState("APPROVED");
+            const examInfo = selectedExamInfo
+              ? {
+                  ...selectedExamInfo,
+                  exam_code: selectedExamInfo.exam_code || data.exam_code,
+                  title: selectedExamInfo.title || data.exam_title,
+                }
+              : null;
+            if (examInfo) {
+              setSelectedExamInfo(examInfo);
+              await loadExam(examInfo.exam_code, data.exam_session_token);
+            }
+          }
+        } else if (data.status === "REJECTED") {
+          setEnrollmentState("REJECTED");
+          setRequestToken("");
+          setExamSessionToken("");
+          setRejectReason(data.reject_reason || "Giảng viên đã từ chối yêu cầu vào phòng thi.");
+        } else if (data.status === "REVOKED") {
+          setExamSessionToken("");
+          setEnrollmentState("REVOKED");
+          setIsExamStarted(false);
+          setExamData(null);
+          sessionStorage.removeItem("exam_progress");
+          sessionStorage.removeItem("exam_started");
+        }
+      } catch (err) {
+        console.warn("Lỗi kiểm tra trạng thái duyệt:", err);
+      }
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollTimer);
+    };
+  }, [enrollmentState, requestToken, selectedExamInfo, loadExam, examResult]);
+
+  useEffect(() => {
+    if (!examSessionToken || !selectedExamInfo?.exam_code) return undefined;
+
+    let isMounted = true;
+    const resumeSession = async () => {
+      const loadedExam = await loadExam(
+        selectedExamInfo.exam_code,
+        examSessionToken,
+      );
+      if (!loadedExam || !isMounted || sessionStorage.getItem("exam_started") !== "1") {
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/exams/code/${encodeURIComponent(loadedExam.exam_code)}/start`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Exam-Session": examSessionToken,
+            },
+          },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!isMounted) return;
+        if (response.status === 409) {
+          setExamResult({ alreadySubmitted: true });
+          return;
+        }
+        if (!response.ok || !Number.isFinite(data.remaining_seconds)) {
+          if (response.status === 401 || response.status === 403) {
+            setEnrollmentState("REVOKED");
+            setExamSessionToken("");
+            setIsExamStarted(false);
+            setExamData(null);
+            sessionStorage.removeItem("exam_progress");
+            sessionStorage.removeItem("exam_started");
+            return;
+          }
+          throw new Error(data.detail || `Không thể khôi phục phiên thi (HTTP ${response.status})`);
+        }
+
+        deadlineRef.current = Date.now() + data.remaining_seconds * 1000;
+        setTimeLeft(data.remaining_seconds);
+        setIsExamStarted(true);
+      } catch (err) {
+        if (isMounted) {
+          setExamLoadError(err.message || "Không thể khôi phục phiên thi.");
+        }
+      }
+    };
+
+    resumeSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [examSessionToken, selectedExamInfo?.exam_code, loadExam]);
+
   // Câu hỏi hiện tại đang hiển thị (chỉ có giá trị khi đã tải đề thành công)
   const question = examData?.questions?.[currentQuestion] || null;
+  const selectedSubjectData = availableData.find(
+    (item) => item.subject === selectedSubject,
+  );
 
   // ═══════════════════════════════════════════════════════════════════════
-  // MÀN HÌNH A — KẾT QUẢ SAU KHI NỘP BÀI (ưu tiên cao nhất, bất kể trạng thái khác)
+  // MÀN HÌNH A — KẾT QUẢ SAU KHI NỘP BÀI (ưu tiên cao nhất)
   // ═══════════════════════════════════════════════════════════════════════
   if (examResult) {
     const already = examResult.alreadySubmitted;
@@ -899,7 +1347,7 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
       <StudentGateway
         studentId={studentId}
         studentName={studentName}
-        stage={examResult ? 3 : examData ? 2 : 1}
+        stage={3}
       >
         <div className="glass-card w-full max-w-md p-8 sm:p-10 text-center space-y-6">
           {already ? (
@@ -980,7 +1428,216 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // MÀN HÌNH B — CHƯA CÓ ĐỀ THI: NHẬP MÃ ĐỀ (cổng vào đầu tiên)
+  // MÀN HÌNH B1 — ĐANG CHỜ GIẢNG VIÊN DUYỆT (PENDING)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (enrollmentState === "PENDING") {
+    return (
+      <StudentGateway
+        studentId={studentId}
+        studentName={studentName}
+        stage={2}
+      >
+        <div className="glass-card w-full max-w-md p-8 sm:p-10 space-y-6 text-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center animate-pulse">
+            <Hourglass className="w-8 h-8 text-amber-700 animate-spin" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold text-text-primary">
+              Đang chờ Giảng viên phê duyệt...
+            </h1>
+            <p className="text-sm text-text-muted">
+              Yêu cầu tham gia phòng thi của bạn đã được gửi tới giám thị. Vui lòng giữ nguyên màn hình này.
+            </p>
+          </div>
+
+          {selectedExamInfo && (
+            <div className="bg-bg-card border border-border-default rounded-2xl p-4 text-left space-y-2">
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span>Môn học:</span>
+                <span className="font-semibold text-text-primary">
+                  {selectedExamInfo.subject || "Chung"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span>Đề thi:</span>
+                <span className="font-semibold text-text-primary">
+                  {selectedExamInfo.title}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span>Giảng viên:</span>
+                <span className="font-semibold text-text-primary">
+                  {selectedExamInfo.teacher_name || "Giảng viên"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span>Mã đề:</span>
+                <span className="font-mono font-bold text-accent-cyan">
+                  {selectedExamInfo.exam_code}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span>Mã sinh viên:</span>
+                <span className="font-mono text-text-primary">{studentId}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-center gap-2 text-xs text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+            <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+            <span>Hệ thống tự động kiểm tra mỗi 3 giây...</span>
+          </div>
+
+          {examLoadError && (
+            <p className="text-sm text-red-700" role="alert">{examLoadError}</p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              onClick={handleCancelJoinRequest}
+              disabled={cancelingJoinRequest}
+              className="min-h-12 py-2.5 rounded-xl text-sm font-semibold text-text-secondary border border-border-default hover:bg-bg-card-hover transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {cancelingJoinRequest ? "Đang hủy yêu cầu..." : "Hủy yêu cầu"}
+            </button>
+            <button
+              onClick={onLogout}
+              className="min-h-12 py-2.5 rounded-xl text-sm font-semibold bg-bg-card border border-border-default text-text-secondary hover:bg-bg-card-hover transition-colors cursor-pointer"
+            >
+              Thoát
+            </button>
+          </div>
+        </div>
+      </StudentGateway>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MÀN HÌNH B2 — BỊ GIẢNG VIÊN TỪ CHỐI (REJECTED)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (enrollmentState === "REJECTED") {
+    return (
+      <StudentGateway
+        studentId={studentId}
+        studentName={studentName}
+        stage={1}
+      >
+        <div className="glass-card w-full max-w-md p-8 sm:p-10 space-y-6 text-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+            <XCircle className="w-8 h-8 text-red-700" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold text-red-700">
+              Yêu cầu vào thi bị từ chối
+            </h1>
+            <p className="text-sm text-text-muted">
+              Giảng viên / Giám thị phòng thi không duyệt yêu cầu tham gia của bạn.
+            </p>
+          </div>
+
+          {rejectReason && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-left">
+              <p className="text-xs font-semibold text-red-700 uppercase mb-1">
+                Lý do từ chối:
+              </p>
+              <p className="text-sm text-red-700 leading-relaxed">
+                {rejectReason}
+              </p>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              setEnrollmentState(null);
+              setRequestToken("");
+              setExamSessionToken("");
+              examSessionTokenRef.current = "";
+              sessionStorage.removeItem("exam_started");
+              sessionStorage.removeItem("exam_progress");
+              setRejectReason("");
+              setSelectedExamInfo(null);
+            }}
+            className="w-full py-3 rounded-xl font-bold text-white bg-accent-cyan hover:brightness-95 shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" /> Quay lại chọn đề khác
+          </button>
+        </div>
+      </StudentGateway>
+    );
+  }
+
+  if (enrollmentState === "REVOKED") {
+    return (
+      <StudentGateway studentId={studentId} studentName={studentName} stage={2}>
+        <div className="glass-card w-full max-w-md p-8 sm:p-10 space-y-5 text-center">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+            <Shield className="w-8 h-8 text-red-700" />
+          </div>
+          <h1 className="text-xl font-bold text-red-700">
+            Phiên thi đã bị thu hồi
+          </h1>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            Giảng viên đã thu hồi quyền tham gia. Bạn không thể tiếp tục bài thi
+            này. Hãy liên hệ giảng viên nếu cần hỗ trợ.
+          </p>
+          {selectedExamInfo && (
+            <p className="text-sm text-text-muted">
+              {selectedExamInfo.subject} · {selectedExamInfo.title}
+            </p>
+          )}
+          <button
+            onClick={() => {
+              setEnrollmentState(null);
+              setRequestToken("");
+              setExamSessionToken("");
+              examSessionTokenRef.current = "";
+              setExamData(null);
+              setSelectedExamInfo(null);
+              sessionStorage.removeItem("exam_started");
+              sessionStorage.removeItem("exam_progress");
+            }}
+            className="w-full min-h-12 py-3 rounded-xl font-bold text-white bg-accent-cyan hover:brightness-95 transition-all cursor-pointer"
+          >
+            Quay lại danh sách đề thi
+          </button>
+          <button
+            onClick={onLogout}
+            className="w-full min-h-12 py-3 rounded-xl text-sm font-semibold text-text-secondary border border-border-default hover:bg-bg-card-hover transition-colors cursor-pointer"
+          >
+            Thoát
+          </button>
+        </div>
+      </StudentGateway>
+    );
+  }
+
+  if (enrollmentState === "APPROVED" && !examData) {
+    return (
+      <StudentGateway studentId={studentId} studentName={studentName} stage={2}>
+        <div className="glass-card w-full max-w-md p-8 text-center space-y-4">
+          <Loader2 className="w-10 h-10 mx-auto animate-spin text-accent-cyan" />
+          <h1 className="text-xl font-bold">Đang mở phiên thi</h1>
+          <p className="text-sm text-text-muted">
+            Phiên đã được duyệt. Đang tải thông tin đề thi...
+          </p>
+          {examLoadError && (
+            <p className="text-sm text-red-700" role="alert">{examLoadError}</p>
+          )}
+          <button
+            onClick={onLogout}
+            className="w-full min-h-12 rounded-xl border border-border-default text-text-secondary"
+          >
+            Thoát
+          </button>
+        </div>
+      </StudentGateway>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MÀN HÌNH B — CHỌN MÔN / ĐỀ THI
   // ═══════════════════════════════════════════════════════════════════════
   if (!examData) {
     return (
@@ -989,79 +1646,180 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
         studentName={studentName}
         stage={examResult ? 3 : examData ? 2 : 1}
       >
-        <div className="glass-card w-full max-w-md p-8 sm:p-10 space-y-6">
-          <div className="text-center space-y-3">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-              <FileQuestion className="w-7 h-7 text-accent-cyan" />
+        <div className="glass-card w-full max-w-xl p-6 sm:p-8 space-y-6">
+          <div className="flex items-center justify-between pb-3 border-b border-border-default">
+            <div>
+              <h1 className="text-xl font-bold text-text-primary">
+                Danh mục Đề thi khả dụng
+              </h1>
+              <p className="text-xs text-text-muted mt-0.5">
+                {studentName ? `${studentName} • ` : ""}Mã SV:{" "}
+                <span className="font-mono text-text-primary font-semibold">
+                  {studentId}
+                </span>
+              </p>
             </div>
-            <h1 className="text-xl font-bold text-text-primary">
-              Nhập mã đề thi
-            </h1>
-            <p className="text-sm text-text-muted">
-              {studentName ? `${studentName} • ` : ""}Mã SV:{" "}
-              <span className="font-mono">{studentId}</span>
-            </p>
+            <button
+              onClick={fetchAvailableExams}
+              disabled={loadingAvailable}
+              className="p-2 rounded-xl bg-bg-card border border-border-default hover:bg-bg-card-hover transition-colors text-text-secondary cursor-pointer"
+              title="Làm mới danh sách"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loadingAvailable ? "animate-spin" : ""}`}
+              />
+            </button>
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              loadExam(examCodeInput);
-            }}
-            className="space-y-4"
-          >
-            <div className="text-left">
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-text-muted mb-2 uppercase tracking-wide">
-                <KeyRound className="w-3.5 h-3.5" /> Mã đề thi (do giám thị cung
-                cấp)
-              </label>
-              <input
-                type="text"
-                autoFocus
-                placeholder="VD: KIEMTRACSD-834A"
-                value={examCodeInput}
-                onChange={(e) => setExamCodeInput(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-bg-card border border-border-default text-text-primary
-                           uppercase tracking-wide placeholder-text-muted placeholder:normal-case
-                           focus:outline-none focus:border-accent-cyan/60 focus:ring-1 focus:ring-accent-cyan/40 transition-all"
-              />
+          {examLoadError && (
+            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-red-700 flex-shrink-0 mt-0.5" />
+              <p className="text-red-700 text-sm leading-relaxed">
+                {examLoadError}
+              </p>
             </div>
+          )}
 
-            {examLoadError && (
-              <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
-                <AlertTriangle className="w-4 h-4 text-red-700 flex-shrink-0 mt-0.5" />
-                <p className="text-red-700 text-sm leading-relaxed">
-                  {examLoadError}
+          {availableError && (
+            <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+              <p className="text-amber-700 text-sm leading-relaxed">
+                {availableError}
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="space-y-2">
+              <span className="block text-sm font-semibold text-text-primary">
+                Bước 1 · Chọn môn thi
+              </span>
+              <select
+                value={selectedSubject}
+                onChange={(event) => {
+                  setSelectedSubject(event.target.value);
+                  setSelectedExamChoice(null);
+                }}
+                disabled={availableData.length === 0}
+                className="w-full min-h-12 rounded-xl px-3 bg-bg-card border border-border-default text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-cyan disabled:opacity-60"
+              >
+                <option value="">Chọn môn học</option>
+                {availableData.map((item) => (
+                  <option key={item.subject} value={item.subject}>
+                    {item.subject}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="space-y-2">
+              <span className="block text-sm font-semibold text-text-primary">
+                Bước 2 · Chọn đề thi
+              </span>
+              <p className="min-h-12 flex items-center rounded-xl px-3 bg-bg-card border border-border-default text-sm text-text-secondary">
+                {selectedSubject || "Vui lòng chọn môn trước"}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-[440px] overflow-y-auto pr-1">
+            {loadingAvailable && availableData.length === 0 ? (
+              <div className="py-10 text-center text-text-muted flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-accent-cyan" />
+                <span>Đang tải danh sách đề thi...</span>
+              </div>
+            ) : availableData.length === 0 ? (
+              <div className="py-8 text-center text-text-muted bg-bg-card rounded-2xl border border-border-default p-6 space-y-2">
+                <FileQuestion className="w-8 h-8 mx-auto text-text-muted/60" />
+                <p className="font-medium text-text-primary">
+                  Hiện chưa có đề thi nào đang mở
                 </p>
               </div>
+            ) : (
+              selectedSubjectData?.exams.length ? (
+                selectedSubjectData.exams.map((exam) => {
+                  const isSelected =
+                    selectedExamChoice?.exam_id === exam.exam_id;
+                  const formatDate = (value) =>
+                    new Date(
+                      value.endsWith("Z") ? value : `${value}Z`,
+                    ).toLocaleString("vi-VN", {
+                      timeZone: "Asia/Ho_Chi_Minh",
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    });
+                  return (
+                    <button
+                      key={exam.exam_id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => setSelectedExamChoice(exam)}
+                      className={`w-full min-h-24 rounded-2xl p-4 text-left border transition-colors ${
+                        isSelected
+                          ? "border-accent-cyan bg-cyan-500/10 ring-2 ring-accent-cyan/30"
+                          : "border-border-default bg-bg-card hover:border-accent-cyan/50"
+                      }`}
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="font-bold text-base text-text-primary">
+                          {exam.title}
+                        </span>
+                        <span
+                          className={`mt-1 w-5 h-5 rounded-full border-2 flex-shrink-0 ${
+                            isSelected
+                              ? "border-accent-cyan bg-accent-cyan ring-2 ring-cyan-200"
+                              : "border-border-default"
+                          }`}
+                        />
+                      </span>
+                      <span className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-text-muted">
+                        <span>Giảng viên: {exam.teacher_name}</span>
+                        <span>
+                          Thời lượng: {exam.duration_minutes} phút ·{" "}
+                          {exam.total_questions} câu
+                        </span>
+                        <span>Mở: {formatDate(exam.start_time)}</span>
+                        <span>Đóng: {formatDate(exam.end_time)}</span>
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="rounded-xl border border-border-default bg-bg-card p-4 text-sm text-text-muted">
+                  Chọn môn thi để xem các đề đang mở.
+                </p>
+              )
             )}
+          </div>
 
+          <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
             <button
-              type="submit"
-              disabled={examLoading || !examCodeInput.trim()}
-              className="w-full py-3.5 rounded-xl font-bold text-white bg-accent-cyan
-                         hover:brightness-95 shadow-sm
-                         disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99] transition-all
-                         cursor-pointer flex items-center justify-center gap-2"
+              onClick={onLogout}
+              className="min-h-12 px-4 text-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center gap-1"
+            >
+              <LogOut className="w-4 h-4" /> Thoát
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleJoinRequest({
+                  ...selectedExamChoice,
+                  subject: selectedSubject,
+                })
+              }
+              disabled={!selectedExamChoice || examLoading}
+              className="min-h-12 px-5 rounded-xl text-sm font-bold text-white bg-accent-cyan hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               {examLoading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Đang tải đề
-                  thi...
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang gửi yêu cầu...
                 </>
               ) : (
-                "Vào phòng thi"
+                "Xin vào thi"
               )}
             </button>
-          </form>
-
-          <button
-            onClick={onLogout}
-            className="w-full text-center text-sm text-text-muted hover:text-text-primary transition-colors
-                       cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Đăng xuất
-          </button>
+          </div>
         </div>
       </StudentGateway>
     );
