@@ -79,3 +79,10 @@ Các mục 1–2 phụ thuộc thiết bị (đặc biệt MediaPipe trên iOS S
 ## 6. Nếu sau này cần file APK (Android)
 
 Frontend đã sẵn sàng để bọc bằng Capacitor và build trên Windows bằng Android Studio: đặt `VITE_API_BASE_URL=https://<địa-chỉ-server>/api` trong `frontend/.env.production`, rồi `npm run build`. iOS native cần máy Mac và tài khoản Apple Developer, nên với iPhone dùng PWA như trên.
+
+## 7. Khi DB bị hỏng
+
+1. Dừng backend bằng `Ctrl+C` và chờ tiến trình thoát hoàn toàn.
+2. Từ thư mục `backend`, chạy `python recover_db.py`. Script chỉ đọc `edushield.db`, tạo `edushield_recovered.db` mới và báo kết quả `integrity_check`; không ghi đè file nguồn.
+3. Chỉ khi file phục hồi báo `ok`, hãy giữ nguyên file cũ làm bản dự phòng, chuyển file DB cũ cùng các file `edushield.db-wal` và `edushield.db-shm` ra khỏi tên đang dùng, rồi đặt `edushield_recovered.db` thành `edushield.db`. Sau đó khởi động backend lại.
+4. Không sao chép, di chuyển, xóa hoặc chỉnh sửa `.db`, `-wal` hay `-shm` khi backend đang chạy. Luôn dừng backend trước mọi thao tác với các file này.

@@ -1773,6 +1773,9 @@ export default function StudentExam({ studentId, studentName, onLogout }) {
                         />
                       </span>
                       <span className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-text-muted">
+                        <span className="font-mono sm:col-span-2">
+                          Mã đề: {exam.exam_code}
+                        </span>
                         <span>Giảng viên: {exam.teacher_name}</span>
                         <span>
                           Thời lượng: {exam.duration_minutes} phút ·{" "}

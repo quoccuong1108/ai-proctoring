@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from database import SessionLocal, Violation
+from database import SessionLocal, Violation, backup_database
 
 logger = logging.getLogger("edushield.scheduler")
 
@@ -25,6 +25,7 @@ logger = logging.getLogger("edushield.scheduler")
 
 CLEANUP_INTERVAL_HOURS = 1       # Quét mỗi 1 giờ
 IMAGE_RETENTION_HOURS = 24       # Giữ ảnh tối đa 24 giờ
+BACKUP_INTERVAL_HOURS = 6
 SNAPSHOTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "snapshots")
 
 # ──────────────────────────────────────────────────────────
@@ -172,6 +173,14 @@ def start_scheduler():
             replace_existing=True,
         )
 
+        _scheduler.add_job(
+            func=backup_database,
+            trigger=IntervalTrigger(hours=BACKUP_INTERVAL_HOURS),
+            id="backup_database",
+            name="Sao lưu cơ sở dữ liệu",
+            replace_existing=True,
+        )
+
         _scheduler.start()
         logger.info(
             "APScheduler started — cleanup job runs every %d hour(s), "
@@ -179,6 +188,7 @@ def start_scheduler():
             CLEANUP_INTERVAL_HOURS,
             IMAGE_RETENTION_HOURS,
         )
+        logger.info("Job sao lưu cơ sở dữ liệu chạy mỗi %d giờ.", BACKUP_INTERVAL_HOURS)
 
     except Exception as exc:
         logger.error("Failed to start APScheduler: %s", exc, exc_info=True)
@@ -194,7 +204,7 @@ def shutdown_scheduler():
 
     if _scheduler is not None:
         try:
-            _scheduler.shutdown(wait=False)
+            _scheduler.shutdown(wait=True)
             logger.info("APScheduler shut down gracefully.")
         except Exception as exc:
             logger.warning("Error shutting down APScheduler: %s", exc)

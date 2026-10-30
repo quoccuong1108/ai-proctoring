@@ -389,6 +389,7 @@ def get_available_exams(request: Request, db: Session = Depends(get_db)):
         subject_name = e.subject or "Chưa phân môn"
         grouped.setdefault(subject_name, []).append({
             "exam_id": e.id,
+            "exam_code": e.exam_code,
             "title": e.title,
             "teacher_name": teacher_name,
             "start_time": start_utc.isoformat(),

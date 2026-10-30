@@ -9,8 +9,10 @@ Bảng `violations` lưu metadata vi phạm + đường dẫn file ảnh snapsho
 import logging
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
+from starlette.requests import Request
 from sqlalchemy import (
     Boolean,
     Column,
@@ -44,7 +46,7 @@ engine = create_engine(
     # timeout: số giây SQLite tự chờ/thử lại trước khi báo lỗi "database is locked" —
     # quan trọng khi module Đề thi có thể nhận nhiều lượt NỘP BÀI gần như đồng thời
     # lúc gần hết giờ thi (khác với module Giám sát vốn chỉ ghi log rải rác).
-    connect_args={"check_same_thread": False, "timeout": 15},
+    connect_args={"check_same_thread": False, "timeout": 5},
     echo=False,
 )
 
@@ -63,7 +65,7 @@ def _set_sqlite_pragmas(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA busy_timeout=15000")  # 15s — khớp với connect_args timeout ở trên
+    cursor.execute("PRAGMA busy_timeout=5000")
     cursor.execute("PRAGMA foreign_keys=ON")     # bật ràng buộc khóa ngoại (ON DELETE CASCADE)
     cursor.close()
 
@@ -614,24 +616,105 @@ def migrate_db(db_engine, create_backup=True):
 # Database Initialization
 # ──────────────────────────────────────────────────────────
 
-def init_db():
-    """Tạo tất cả bảng nếu chưa tồn tại và chạy migrate schema."""
+def check_database_integrity(db_engine=engine):
+    """Kiểm tra nhanh tính toàn vẹn trước khi tạo bảng hoặc chạy migration."""
+    recovery_script = Path(__file__).with_name("recover_db.py")
+    database_path = db_engine.url.database
+    readonly_connection = None
     try:
-        if _database_needs_update(engine):
-            _backup_database(engine)
-        Base.metadata.create_all(bind=engine)
-        migrate_db(engine, create_backup=False)
+        if database_path and database_path != ":memory:":
+            resolved_path = Path(database_path).resolve()
+            if not resolved_path.exists():
+                return "ok"
+            readonly_connection = sqlite3.connect(
+                f"{resolved_path.as_uri()}?mode=ro",
+                uri=True,
+            )
+            result = readonly_connection.execute("PRAGMA quick_check").fetchone()[0]
+        else:
+            with db_engine.connect() as conn:
+                result = conn.exec_driver_sql("PRAGMA quick_check").scalar()
+    except Exception as exc:
+        logger.error(
+            "Không thể kiểm tra tính toàn vẹn cơ sở dữ liệu. "
+            "Hãy dừng backend và chạy python recover_db.py để cứu dữ liệu.",
+            exc_info=True,
+        )
+        raise RuntimeError("Không thể kiểm tra tính toàn vẹn cơ sở dữ liệu") from exc
+    finally:
+        if readonly_connection is not None:
+            readonly_connection.close()
+
+    if result != "ok":
+        logger.error(
+            "Kiểm tra cơ sở dữ liệu thất bại: %s. "
+            "Backend sẽ dừng; hãy dừng backend và chạy python %s.",
+            result,
+            recovery_script,
+        )
+        raise RuntimeError(f"Cơ sở dữ liệu không toàn vẹn: {result}")
+    return result
+
+
+def backup_database(db_engine=engine):
+    """Tạo bản sao nhất quán bằng SQLite backup API và giữ tối đa 7 bản."""
+    with db_engine.connect() as conn:
+        database_path = conn.exec_driver_sql("PRAGMA database_list").fetchone()[2]
+        if not database_path:
+            raise RuntimeError("Không xác định được đường dẫn cơ sở dữ liệu cần sao lưu")
+
+        backup_dir = Path(database_path).resolve().parent / "db_backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_path = backup_dir / f"edushield-{timestamp}.db"
+        while backup_path.exists():
+            timestamp = (
+                datetime.strptime(timestamp, "%Y%m%d-%H%M%S") + timedelta(seconds=1)
+            ).strftime("%Y%m%d-%H%M%S")
+            backup_path = backup_dir / f"edushield-{timestamp}.db"
+
+        backup_connection = sqlite3.connect(str(backup_path))
+        try:
+            conn.connection.driver_connection.backup(backup_connection)
+        except Exception:
+            backup_connection.close()
+            backup_path.unlink(missing_ok=True)
+            raise
+        else:
+            backup_connection.close()
+
+    backups = sorted(
+        backup_dir.glob("edushield-????????-??????.db"),
+        key=lambda path: (path.stat().st_mtime_ns, path.name),
+        reverse=True,
+    )
+    for old_backup in backups[7:]:
+        old_backup.unlink()
+
+    logger.info("Đã sao lưu cơ sở dữ liệu an toàn: %s", backup_path)
+    return backup_path
+
+
+def init_db(db_engine=engine):
+    """Tạo tất cả bảng nếu chưa tồn tại và chạy migrate schema."""
+    check_database_integrity(db_engine)
+    try:
+        if _database_needs_update(db_engine):
+            _backup_database(db_engine)
+        Base.metadata.create_all(bind=db_engine)
+        migrate_db(db_engine, create_backup=False)
         logger.info("Database initialized & migrated successfully (SQLite: edushield.db)")
     except Exception as exc:
         logger.error("Failed to initialize database: %s", exc, exc_info=True)
         raise
 
 
-def get_db():
+def get_db(request: Request):
     """
     FastAPI dependency — yield một session và tự đóng khi request kết thúc.
     """
     db = SessionLocal()
+    request.state.db = db
     try:
         yield db
     except Exception:

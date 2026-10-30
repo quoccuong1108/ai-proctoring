@@ -73,9 +73,10 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import case, desc, func
+from sqlalchemy.exc import DatabaseError
 from sqlalchemy.orm import Session
 
 import time
@@ -99,6 +100,8 @@ from database import (
     Teacher,
     TeacherSession,
     Violation,
+    backup_database,
+    engine,
     get_db,
     init_db,
 )
@@ -116,6 +119,41 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
 )
 logger = logging.getLogger("edushield")
+_database_error_log_times = {}
+_database_error_log_lock = threading.Lock()
+
+
+def _log_database_error_once_per_minute(exc):
+    """Giới hạn stack trace của cùng một lỗi DB ở mức một lần mỗi phút."""
+    now = time.monotonic()
+    error_key = (type(exc), str(exc))
+    with _database_error_log_lock:
+        for key, logged_at in list(_database_error_log_times.items()):
+            if now - logged_at >= 60:
+                del _database_error_log_times[key]
+        last_logged = _database_error_log_times.get(error_key)
+        if last_logged is None or now - last_logged >= 60:
+            _database_error_log_times[error_key] = now
+            logger.error("Lỗi cơ sở dữ liệu: %s", exc, exc_info=(type(exc), exc, exc.__traceback__))
+        else:
+            logger.error("Lỗi cơ sở dữ liệu lặp lại (đã ghi chi tiết gần đây): %s", exc)
+
+
+async def database_error_handler(request: Request, exc: DatabaseError):
+    db = getattr(request.state, "db", None)
+    if db is not None:
+        try:
+            db.rollback()
+        except Exception as rollback_error:
+            logger.error("Không thể rollback session sau lỗi cơ sở dữ liệu: %s", rollback_error)
+
+    _log_database_error_once_per_minute(exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Cơ sở dữ liệu đang gặp sự cố, vui lòng liên hệ quản trị viên"
+        },
+    )
 
 # ──────────────────────────────────────────────────────────
 # CÁC HẰNG SỐ CẤU HÌNH (CONSTANTS)
@@ -343,7 +381,7 @@ class TeacherLoginRequest(BaseModel):
 async def lifespan(app: FastAPI):
     """
     Hàm quản lý vòng đời ứng dụng FastAPI (thay thế cho on_event startup và shutdown cũ).
-    - Khởi động: Tạo thư mục lưu trữ ảnh, khởi tạo các bảng SQLite và kích hoạt Cron Job APScheduler.
+    - Khởi động: Tạo thư mục lưu trữ ảnh, kiểm tra/sao lưu SQLite và kích hoạt Cron Job APScheduler.
     - Tắt máy chủ: Dừng an toàn bộ lập lịch tiến trình ngầm và giải phóng tài nguyên.
     """
     # ── GIAI ĐOẠN KHỞI ĐỘNG (STARTUP) ──
@@ -361,8 +399,9 @@ async def lifespan(app: FastAPI):
 
     # 2. Khởi tạo cơ sở dữ liệu SQLite và các bảng liên quan
     init_db()
+    backup_database()
 
-    # 3. Kích hoạt bộ lập lịch tác vụ tự động dọn dẹp ảnh APScheduler (chạy mỗi 30 phút)
+    # 3. Kích hoạt các tác vụ tự động dọn dẹp ảnh và sao lưu DB.
     start_scheduler()
 
     logger.info("Toàn bộ dịch vụ đã kích hoạt thành công. Sẵn sàng tiếp nhận bản tin vi phạm.")
@@ -372,7 +411,16 @@ async def lifespan(app: FastAPI):
 
     # ── GIAI ĐOẠN DỪNG HỆ THỐNG (SHUTDOWN) ──
     logger.info("Đang tiến hành tắt dịch vụ EduShield AI Backend...")
-    shutdown_scheduler()
+    try:
+        shutdown_scheduler()
+    finally:
+        try:
+            with engine.connect() as conn:
+                conn.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception as exc:
+            logger.error("Không thể checkpoint WAL khi tắt backend: %s", exc, exc_info=True)
+        finally:
+            engine.dispose()
     logger.info("Hệ thống đã dừng an toàn.")
 
 
@@ -386,6 +434,7 @@ app = FastAPI(
     version="3.0.0",
     lifespan=lifespan,
 )
+app.add_exception_handler(DatabaseError, database_error_handler)
 
 # Cùng origin không cần CORS; chỉ mở các origin khác khi được cấu hình tường minh.
 allowed_origins_raw = os.environ.get("ALLOWED_ORIGINS", "").strip()

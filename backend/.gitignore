@@ -2,6 +2,8 @@
 # (đúng nguyên tắc "privacy by design" đã nêu ở SRS mục 10)
 edushield.db
 edushield.db-journal
+edushield_recovered.db
+db_backups/
 
 # Ảnh snapshot bằng chứng vi phạm — dữ liệu nhạy cảm, không lưu vĩnh viễn trong repo
 snapshots/*
