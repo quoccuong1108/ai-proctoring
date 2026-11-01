@@ -3,17 +3,21 @@
 \input{styles/settings}
 \usepackage{longtable}
 \usepackage{needspace}
-\hypersetup{pdftitle={EduShield AI - He thong thi truc tuyen va ho tro giam sat},pdfauthor={Nhom thuc hien - can bo sung}}
+\hypersetup{pdftitle={EduShield AI - Hệ thống thi trực tuyến và hỗ trợ giám sát bằng AI},pdfauthor={Hồ Quốc Cường; Lê Công Gia Bình}}
 \newcommand{\src}[1]{{\small\nolinkurl{#1}}}
-\newcommand{\pending}[1]{\textcolor{daumaroon}{[#1]}}
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
-\tikzset{reportbox/.style={draw=daunavy,rounded corners,fill=lightnavy,align=center,font=\small,text width=4.3cm,minimum height=1cm},reportarrow/.style={-{Stealth},thick,draw=daunavy}}
-\setlength{\emergencystretch}{2em}
+\tikzset{rb/.style={draw=daunavy,rounded corners=3pt,fill=lightnavy,align=center,font=\small,text width=3.5cm,minimum height=1.1cm,inner sep=6pt},ra/.style={-{Stealth},thick,draw=daunavy}}
+\setlength{\emergencystretch}{3em}
 \input{thong-tin}
 \begin{document}
 \raggedbottom
+\clubpenalty=10000
+\widowpenalty=10000
+\displaywidowpenalty=10000
+\hypersetup{pageanchor=false}
 \coverpage
 \frontmatter
+\hypersetup{pageanchor=true}
 \dauPageStyle
 \input{chuong/00-loi-cam-doan}
 \input{chuong/00-loi-cam-on}
@@ -36,5 +40,4 @@
 \addcontentsline{toc}{chapter}{Tài liệu tham khảo}
 \bibliographystyle{plain}
 \bibliography{refs}
-\input{chuong/07-phu-luc}
 \end{document}

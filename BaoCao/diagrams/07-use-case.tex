@@ -1,0 +1,10 @@
+
+\begin{tikzpicture}[x=1cm,y=1.12cm,font=\small\linespread{1}\selectfont,uc/.style={ellipse,draw=daunavy,fill=lightnavy,text width=3.7cm,align=center,minimum height=1cm},actor/.style={align=center,font=\small\bfseries}]
+\draw[draw=daunavy,rounded corners] (-3.2,1.4) rectangle (3.2,-12.4);
+\node at (0,1) {\textbf{EduShield AI}};
+\node[actor] (gv) at (-5,-4.9) {Giảng viên};
+\node[actor] (sv) at (5,-4.9) {Sinh viên};
+\foreach \y/\id/\txt in {0/u1/Đăng nhập và đăng xuất,-1.5/u2/Nhập và quản lý đề,-3/u3/Duyệt và thu hồi phiên,-4.5/u4/Xem nhật ký và ảnh,-6/u5/Xem điểm và xuất Excel,-7.5/u6/Xin vào thi và chờ duyệt,-9/u7/Làm bài có giám sát,-10.5/u8/Nộp bài và nhận điểm}{\node[uc] (\id) at (0,\y-0.5) {\txt};}
+\foreach \n in {u1,u2,u3,u4,u5} \draw (gv)--(\n.west);
+\foreach \n in {u6,u7,u8} \draw (sv)--(\n.east);
+\end{tikzpicture}

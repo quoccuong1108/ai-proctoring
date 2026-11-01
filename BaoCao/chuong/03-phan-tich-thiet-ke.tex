@@ -1,236 +1,168 @@
 \chapter{Phân tích yêu cầu và thiết kế hệ thống}
 \markboth{Chương 3. Phân tích và thiết kế}{}
 \section{Tác nhân và yêu cầu chức năng}
-Hệ thống có hai nhóm thao tác chính. Sinh viên nhập thông tin, truy cập đề bằng mã, chuẩn bị camera, trả lời và nộp bài. Giảng viên cung cấp token quản lý để thao tác với đề thi, xem kết quả và tra cứu các sự kiện. Việc lựa chọn vai trò trên giao diện điều hướng đến màn hình phù hợp; quyền đọc dữ liệu quản lý vẫn được kiểm tra tại backend.
+Giảng viên quản lý đề thuộc tài khoản của mình, xử lý yêu cầu vào thi, xem sự kiện và kết quả. Sinh viên khai báo thông tin, chọn môn và đề, chờ duyệt rồi làm bài trong phiên được cấp. Việc chọn vai trò trên giao diện chỉ điều hướng màn hình; backend kiểm tra quyền cho từng yêu cầu.
 
-\begin{longtable}{@{}L{1.2cm}L{4.1cm}L{9.3cm}@{}}
-\caption{Yêu cầu chức năng và phạm vi hiện có}\label{tab:req}\\
-\toprule Mã & Chức năng & Phạm vi khảo sát \\\midrule\endfirsthead
-\toprule Mã & Chức năng & Phạm vi khảo sát \\\midrule\endhead
-FR01 & Truy cập theo vai trò & Giao diện phân luồng sinh viên/giảng viên; giảng viên sử dụng token dùng chung.\\
-FR02 & Nhập đề & Nhận XLSX hoặc DOCX theo định dạng; thông báo lỗi; loại câu trùng; tạo đề nháp.\\
-FR03 & Quản lý đề & Danh sách, chi tiết có đáp án cho giảng viên, công bố và xóa khi chưa có bài nộp.\\
-FR04 & Lấy đề làm bài & Tìm theo mã; chỉ trả đề đã công bố trong khung giờ được cấu hình; không trả đáp án đúng.\\
-FR05 & Làm và nộp bài & Lưu lựa chọn ở giao diện, đếm thời gian, gửi câu trả lời và chấm trên máy chủ.\\
-FR06 & Chống nộp trùng & Một bản nộp cho mỗi cặp đề--mã sinh viên, có ràng buộc duy nhất ở CSDL.\\
-FR07 & Giám sát camera & Phát hiện năm loại tín hiệu hình ảnh; chụp ảnh sự kiện và gửi backend.\\
-FR08 & Sự kiện trình duyệt & Ghi nhận chuyển tab, mất tiêu điểm, thoát toàn màn hình và gửi về backend khi bài thi đang hoạt động.\\
-FR09 & Tổng quan giám sát & Thống kê, tìm sinh viên, danh sách sự kiện và xem ảnh có xác thực.\\
-FR10 & Kết quả & Xem điểm, số câu đúng và xuất Excel; ghép số sự kiện theo mã sinh viên, có lọc thời gian khi đề có lịch.\\
-FR11 & Quản lý ảnh & Xóa ảnh riêng, xóa toàn bộ dữ liệu sự kiện qua API quản lý; tác vụ nền dọn ảnh cũ.\\
-FR12 & Đa thiết bị & Web PC, Android Chrome/PWA, iOS Safari/PWA qua HTTPS; APK Android theo xác nhận tác giả.\\
-FR13 & Tiếp tục thời gian & Lưu mốc bắt đầu duy nhất theo đề và mã sinh viên; gọi lại trả thời gian còn lại.\\
+\begin{longtable}{@{}L{1.1cm}L{4.1cm}L{9.4cm}@{}}
+\caption{Yêu cầu chức năng của hệ thống}\\
+\toprule Mã & Chức năng & Phạm vi triển khai \\\midrule\endfirsthead
+\toprule Mã & Chức năng & Phạm vi triển khai \\\midrule\endhead
+FR01 & Tài khoản giảng viên & Đăng nhập bằng mã và mật khẩu; kiểm tra phiên; đăng xuất.\\
+FR02 & Nhập đề & XLSX/DOCX; kiểm tra định dạng, câu lỗi và trùng; tạo đề nháp theo môn.\\
+FR03 & Quản lý đề & Xem, công bố với lịch thi, đóng; xóa khi chưa có bài nộp.\\
+FR04 & Xin vào thi & Xem đề khả dụng, gửi yêu cầu, theo dõi trạng thái và hủy yêu cầu chờ.\\
+FR05 & Phê duyệt & Duyệt một hoặc nhiều yêu cầu; từ chối kèm lý do; thu hồi phiên.\\
+FR06 & Làm bài & Lấy đề bằng phiên hợp lệ; không nhận đáp án đúng; lưu tiến độ cục bộ.\\
+FR07 & Thời gian thi & Lưu mốc bắt đầu duy nhất, trả thời gian còn lại và kiểm soát hạn nộp.\\
+FR08 & Chấm điểm & Chấm tại máy chủ, lưu chi tiết trả lời, ngăn nộp trùng.\\
+FR09 & Giám sát hình ảnh & Năm nhãn camera, ảnh chụp và khoảng nghỉ theo nhãn.\\
+FR10 & Sự kiện trình duyệt & Chuyển tab, mất focus và thoát toàn màn hình khi bài thi hoạt động.\\
+FR11 & Tra cứu & Thống kê, lọc sự kiện, xem ảnh có xác thực; liên kết sự kiện với đề/ghi danh.\\
+FR12 & Kết quả & Điểm, số câu đúng, số sự kiện theo đề và xuất Excel.\\
+FR13 & Bảo trì dữ liệu & Dọn ảnh hết hạn, sao lưu DB, kiểm tra toàn vẹn và công cụ phục hồi.\\
 \bottomrule
 \end{longtable}
 
-\section{Yêu cầu phi chức năng và tiêu chí nghiệm thu}
-Các yêu cầu phi chức năng dưới đây là tiêu chí cần hướng tới; không phải mọi tiêu chí đã được kiểm chứng ở phiên bản khảo sát.
+\section{Yêu cầu phi chức năng}
+Tính đúng đắn yêu cầu đáp án chuẩn chỉ được dùng tại máy chủ, mỗi cặp đề--sinh viên chỉ có một bài nộp, và hạn nộp được tính từ thời gian phía server. Kiểm soát truy cập yêu cầu tài nguyên quản lý có phiên giảng viên, nghiệp vụ thi có phiên sinh viên được duyệt, đồng thời kiểm tra quyền sở hữu đề ở các tuyến liên quan.
 
-\begin{longtable}{@{}L{3.2cm}L{6.2cm}L{5.2cm}@{}}
-\caption{Tiêu chí chất lượng và cách kiểm tra}\\
-\toprule Thuộc tính & Tiêu chí & Cách xác nhận \\\midrule\endfirsthead
-\toprule Thuộc tính & Tiêu chí & Cách xác nhận \\\midrule\endhead
-Tính đúng đắn & Điểm theo đáp án máy chủ; không phát đáp án đúng trong API làm bài. & Kiểm thử API và đối chiếu kết quả với dữ liệu mẫu.\\
-Khả dụng giao diện & Câu hỏi dài, camera, cảnh báo và nút nộp dễ quan sát; lỗi có thông báo. & Kiểm thử màn hình thật ở nhiều độ phân giải.\\
-Hiệu năng & Suy luận và thao tác không gây giật đáng kể trên thiết bị mục tiêu. & Đo thời gian suy luận, độ trễ, CPU và khung hình trên thiết bị thật.\\
-Toàn vẹn dữ liệu & Không tạo hai bài nộp cho cùng đề và mã sinh viên; thời gian nhất quán. & Kiểm thử nộp trùng, tranh chấp đồng thời và chuyển đổi múi giờ.\\
-Bảo mật & Chỉ giảng viên có quyền xem dữ liệu quản lý và ảnh. & Kiểm tra các tuyến với token thiếu, sai và hợp lệ; đánh giá phiên đăng nhập.\\
-Riêng tư & Thu thập tối thiểu; ảnh có thời hạn lưu và có thể xóa. & Rà soát luồng dữ liệu, tác vụ dọn ảnh và quy trình thông báo cho sinh viên.\\
-Khả năng tái lập & Chốt phiên bản mã, phụ thuộc, mô hình và dữ liệu kiểm thử. & Dựng lại môi trường từ commit và ghi nhận phiên bản thực dùng.\\
-\bottomrule
-\end{longtable}
+Về hiệu năng, suy luận được phân bố tới máy khách và sự kiện được giới hạn tần suất. Đây là quyết định thiết kế; năng lực phục vụ đồng thời vẫn cần phép đo riêng. Về riêng tư, ảnh được lưu theo sự kiện, có thời hạn và có thể xóa; metadata được giữ để tra cứu. Về khả dụng, giao diện cần thông báo rõ lỗi khởi tạo AI, phiên không hợp lệ và nộp bài thất bại.
 
 \section{Các ca sử dụng chính}
-\subsection{UC01: Giảng viên tạo và công bố đề}
-Tiền điều kiện là giảng viên có token hợp lệ và tệp đề theo mẫu. Giảng viên chọn tệp, nhập tên đề và tùy chọn mã đề. Backend kiểm tra kích thước, định dạng và nội dung; các câu hợp lệ được lưu dưới một đề ở trạng thái nháp. Giảng viên xem thông tin và lỗi nhập, sau đó cấu hình thời lượng, ngưỡng đạt và xáo trộn trước khi công bố.
+\subsection{UC01: Đăng nhập và quản lý đề}
+Giảng viên có tài khoản hợp lệ nhập mã và mật khẩu. Backend kiểm tra mật khẩu băm, tạo phiên và trả token. Giảng viên tải tệp đề kèm môn học, tên đề và khoảng cho phép xin vào sớm. Đề hợp lệ được tạo ở trạng thái DRAFT. Sau khi xem nội dung, giảng viên nhập thời lượng, ngưỡng đạt, tùy chọn xáo trộn và lịch để công bố. Đề có thể được đóng chủ động; việc xóa bị từ chối khi đã có bài nộp.
 
-Nếu tệp không có câu hợp lệ hoặc vượt giới hạn số câu, hệ thống không được coi là đã tạo thành công một đề dùng được. Nếu có câu không hợp lệ nhưng vẫn còn câu hợp lệ, người dùng cần đọc thông báo nhập để tránh tưởng rằng toàn bộ tệp đã được chấp nhận. Sau khi công bố, mã đề trở thành đầu vào cho luồng sinh viên.
+\subsection{UC02: Xin vào thi và cấp phiên}
+Sinh viên nhập mã, họ tên, chọn môn và đề đang khả dụng, sau đó gửi yêu cầu. Backend tạo hoặc cập nhật lượt ghi danh PENDING và trả request token. Giảng viên kiểm tra yêu cầu rồi phê duyệt hoặc từ chối. Sinh viên dùng request token để kiểm tra trạng thái; khi APPROVED, server cấp exam session token đúng một lần.
 
-\subsection{UC02: Sinh viên làm và nộp bài}
-Sinh viên khai báo thông tin, nhập mã đề, xem phần chuẩn bị và bắt đầu làm bài. Giao diện tải câu hỏi không kèm đáp án đúng, xin quyền camera và khởi tạo mô hình. Các lựa chọn trả lời được giữ trong trạng thái của trang. Khi nộp, máy chủ đọc câu hỏi gốc, so sánh đáp án và lưu kết quả trong giao dịch.
+Phiên thi bị chặn nếu lượt ghi danh không còn APPROVED hoặc chưa được cấp token. Yêu cầu mới bằng cùng mã sinh viên có thể vô hiệu hóa yêu cầu/phiên đang tồn tại theo logic của hệ thống; vì vậy người dùng cần duy trì phiên hiện tại thay vì tự tạo nhiều yêu cầu. Việc phê duyệt không chứng minh danh tính sinh trắc học của người làm bài.
 
-Luồng ngoại lệ gồm mã đề sai, đề chưa công bố, ngoài lịch mở đề, camera bị từ chối, mô hình không tải được, mạng gián đoạn hoặc mã sinh viên đã nộp bài. Với mã đã nộp, backend trả xung đột thay vì tạo bản nộp thứ hai. Máy chủ đã lưu mốc bắt đầu trong exam\_starts. Gọi lại API bắt đầu khôi phục thời gian còn lại khi dịch vụ phản hồi, nhưng không khôi phục các đáp án vốn chỉ lưu trong trạng thái React; API nộp chưa cưỡng chế deadline.
+\subsection{UC03: Làm bài và nộp bài}
+Sinh viên dùng phiên đã duyệt để lấy đề không có đáp án. Khi bắt đầu, backend tìm hoặc tạo mốc bắt đầu duy nhất theo đề và mã sinh viên, trả thời gian còn lại. Chỉ khi yêu cầu bắt đầu thành công, giao diện kích hoạt bài thi, camera và AI. Lỗi mạng ở bước bắt đầu được hiển thị để thử lại, không cấp lại đủ thời lượng.
 
-\subsection{UC03: Giảng viên xem xét sự kiện}
-Giảng viên mở tổng quan, lọc hoặc tìm sinh viên rồi xem danh sách các nhãn nghi vấn. Với sự kiện còn ảnh, giao diện lấy ảnh qua yêu cầu có token và hiển thị để giảng viên đối chiếu. Nếu ảnh đã được dọn, bản ghi thời gian và loại sự kiện vẫn tồn tại.
+Lựa chọn, câu đang xem và thứ tự câu được lưu trong sessionStorage. Khi tải lại cùng phiên, giao diện khôi phục tiến độ hợp lệ và đồng bộ thời gian với server. Khi nộp hoặc hết giờ, API kiểm tra phiên, đề, mốc bắt đầu, hạn nộp và bản nộp cũ trước khi chấm. Nộp lại trả 409; nộp thiếu mốc bắt đầu hoặc quá hạn trả 403.
 
-Hậu điều kiện của ca sử dụng hiện tại là người dùng đã tra cứu được thông tin. Dự án chưa có quy trình xét duyệt ``xác nhận vi phạm'', ``bác bỏ cảnh báo'' hoặc khiếu nại được lưu thành một hồ sơ riêng. Vì vậy, không nên đồng nhất việc xuất hiện một hàng trong danh sách với quyết định kỷ luật đã được xác lập.
+\subsection{UC04: Xem xét cảnh báo và kết quả}
+Giảng viên mở nhật ký, chọn bộ lọc, xem ảnh còn lưu và đối chiếu với sinh viên, đề, thời điểm. Dữ liệu được cập nhật bằng polling. Khi xem bảng điểm, số vi phạm được tổng hợp theo mã sinh viên và đúng đề thi. Hệ thống chưa lưu quy trình kết luận ``xác nhận/bác bỏ vi phạm'' hoặc khiếu nại; điểm trắc nghiệm không tự giảm theo số cảnh báo.
 
+\section{Mô hình hóa nghiệp vụ và luồng dữ liệu}
+Các sơ đồ sau mô tả phạm vi ứng dụng web trong bản mã nguồn final. Giảng viên và sinh viên là hai tác nhân nghiệp vụ; AI chạy trong trình duyệt là thành phần nội bộ, không phải tác nhân có quyền quyết định gian lận.
+\clearpage
+\subsection{Sơ đồ Use case tổng quát}
+Đường nối thể hiện tác nhân tham gia ca sử dụng. Các chức năng quản lý yêu cầu phiên giảng viên; làm bài và nộp bài yêu cầu phiên thi được duyệt. Giám sát là hoạt động tích hợp trong khi làm bài, không phải bước xác minh danh tính sinh trắc học.
+\begin{figure}[H]\centering\input{diagrams/07-use-case.tex}
+\caption{Sơ đồ Use case của hai tác nhân nghiệp vụ.}\end{figure}
+\clearpage
+\subsection{Sơ đồ ngữ cảnh (DFD mức 0)}
+Toàn bộ frontend, backend và lưu trữ được gom thành tiến trình 0. Hai thực thể ngoài gửi dữ liệu vào và nhận kết quả từ hệ thống. Việc tải mô hình, WASM và kết nối HTTPS được mô tả riêng ở sơ đồ kiến trúc, không phải luồng nghiệp vụ của DFD này.
+\begin{figure}[H]\centering\input{diagrams/08-ngu-canh.tex}
+\caption{Ngữ cảnh và các dòng dữ liệu qua ranh giới hệ thống.}\end{figure}
+\clearpage
+\subsection{Sơ đồ tuần tự cấp phiên thi}
+Sơ đồ biểu diễn nhánh phê duyệt thành công. Mũi tên nét đứt là phản hồi; thời gian đi từ trên xuống. Nếu bị từ chối hoặc thu hồi, sinh viên chỉ nhận trạng thái tương ứng và không được cấp phiên hợp lệ. Token phiên thi được cấp đúng một lần khi kiểm tra trạng thái sau phê duyệt.
+\begin{figure}[H]\centering\input{diagrams/09-tuan-tu-phien.tex}
+\caption{Trình tự xin thi, duyệt và nhận phiên thi.}\end{figure}
+\clearpage
+\subsection{Sơ đồ tuần tự bắt đầu và nộp bài}
+Sơ đồ thể hiện nhánh hợp lệ; server lấy danh tính từ phiên. Thao tác bắt đầu có tính lặp an toàn. Nếu chưa bắt đầu hoặc quá hạn, server trả 403; nếu đã nộp, trả 409. Các nhánh lỗi kết thúc trước bước lưu bài; đáp án đúng không được gửi trong phản hồi lấy đề.
+\begin{figure}[H]\centering\input{diagrams/10-tuan-tu-nop.tex}
+\caption{Trình tự đồng bộ thời gian, chấm điểm và lưu kết quả.}\end{figure}
+\clearpage
+\subsection{Sơ đồ hoạt động của sinh viên}
+Các hình thoi biểu diễn điều kiện rẽ nhánh. Khi yêu cầu còn PENDING, giao diện tiếp tục chờ và kiểm tra trạng thái; chỉ chuyển sang nhận phiên sau khi được duyệt. Hoạt động giám sát diễn ra trong thời gian bài thi đang hoạt động.
+\begin{figure}[H]\centering\input{diagrams/11-hoat-dong.tex}
+\caption{Luồng hoạt động: xin thi và nhận phiên.}\end{figure}
+\clearpage
+\subsubsection*{Luồng làm bài và nộp bài}
+Sau khi nhận phiên, sinh viên bắt đầu bài thi. Nếu yêu cầu bắt đầu thất bại, giao diện báo lỗi để thử lại; không tự cấp thêm thời gian.
+\begin{figure}[H]\centering\input{diagrams/11-hoat-dong-b.tex}
+\caption{Luồng làm bài và nộp bài.}\end{figure}
+\clearpage
+\subsection{DFD mức 1: phân rã chức năng}
+Bốn tiến trình sử dụng năm kho logic: D1 (tài khoản, phiên giảng viên), D2 (đề, câu hỏi), D3 (ghi danh), D4 (mốc thi, bài nộp, trả lời), D5 (sự kiện, ảnh). Hình chữ nhật là tác nhân; khối bo góc là tiến trình; hai đường ngang là kho. Tác nhân và kho lặp lại vẫn chỉ cùng một đối tượng. Mỗi dòng chỉ áp dụng cho vai trò có quyền tương ứng; truy vấn điểm của giảng viên còn được kiểm tra quyền sở hữu đề.
+\begin{figure}[H]\centering\input{diagrams/12-dfd-muc-1.tex}
+\caption{DFD mức 1: tài khoản, quản lý đề và cấp phiên.}\end{figure}
+\clearpage
+\subsubsection*{DFD mức 1: thi và giám sát}
+Hai nhóm chức năng tiếp theo dùng cùng quy ước kho dữ liệu và tác nhân. Giảng viên truy vấn kết quả, nhật ký; sinh viên gửi lựa chọn và sự kiện của phiên thi.
+\begin{figure}[H]\centering\input{diagrams/12-dfd-muc-1-b.tex}
+\caption{DFD mức 1: thi và giám sát.}\end{figure}
+\clearpage
+\subsection{DFD mức 2: thi và chấm điểm}
+Các dòng thể hiện dữ liệu, không thể hiện thứ tự gọi hàm. Tiến trình 3.1 là bước kiểm tra phiên dùng chung trước các thao tác lấy đề, bắt đầu và nộp; danh tính hợp lệ được sử dụng trong xử lý nội bộ, không phải token mới. Các tác nhân và kho được lặp lại theo cùng quy ước của mức 1. Truy vấn của giảng viên còn yêu cầu phiên giảng viên và quyền sở hữu đề. Tiến trình 3.3 còn kiểm tra trạng thái đề, hạn thi và bài đã nộp; khi không hợp lệ, phản hồi lỗi được trả về sinh viên và không chuyển dữ liệu sang 3.4. Việc xem và xuất điểm của giảng viên đọc dữ liệu kết quả đã lưu tại D4.
+\begin{figure}[H]\centering\input{diagrams/13-dfd-muc-2.tex}
+\caption{DFD mức 2: xác thực, lấy đề và bắt đầu thi.}\end{figure}
+\clearpage
+\subsubsection*{DFD mức 2: chấm bài và trả kết quả}
+Điểm và chi tiết hợp lệ được chuyển từ tiến trình 3.3 sang 3.4 để lưu. Nếu điều kiện nộp không đạt, hệ thống trả lỗi và không lưu bài mới.
+\begin{figure}[H]\centering\input{diagrams/13-dfd-muc-2-b.tex}
+\caption{DFD mức 2: chấm bài và trả kết quả.}\end{figure}
+
+\clearpage
 \section{Kiến trúc tổng thể}
+Frontend React đảm nhiệm tương tác và suy luận; FastAPI quản lý nghiệp vụ; SQLAlchemy truy cập SQLite; ảnh JPEG được lưu trên ổ đĩa. APScheduler thực hiện dọn ảnh và sao lưu. Mô hình cùng WASM được tải từ nguồn bên ngoài về trình duyệt.
+\begin{figure}[H]\centering\input{diagrams/01-kien-truc.tex}
+\caption{Kiến trúc các thành phần của EduShield AI.}\end{figure}
 
-
-Hai vai trò cùng sử dụng ứng dụng frontend, nhưng truy cập các thành phần khác nhau. Backend là điểm tập trung dữ liệu. Mô hình AI thực thi ở trình duyệt sinh viên; khi phát sinh sự kiện, ảnh thu nhỏ và metadata được gửi tới API. Tác vụ APScheduler chạy phía backend để dọn ảnh theo thời hạn.
-
-Trong môi trường phát triển, Vite chuyển tiếp đường dẫn \src{/api} sang cổng 8000. Trong bản triển khai tunnel, FastAPI trực tiếp phục vụ frontend/dist và SPA fallback; web và API cùng origin, không cần Vite để phục vụ bản build. Camera trên web cũng cần môi trường nguồn tin cậy như localhost khi phát triển hoặc HTTPS khi triển khai.
+Trong môi trường phát triển, Vite chuyển tiếp /api tới backend. Khi triển khai, FastAPI phục vụ frontend/dist cùng API. Cloudflare Tunnel cung cấp địa chỉ HTTPS cho máy tính và điện thoại truy cập. Flutter là máy khách riêng đang phát triển, không nằm trong đường suy luận MediaPipe của React.
 
 \section{Thiết kế mô-đun}
-\begin{longtable}{@{}L{4.8cm}L{10.2cm}@{}}
-\caption{Phân chia mô-đun trong mã nguồn}\\
-\toprule Mô-đun & Trách nhiệm \\\midrule\endfirsthead
+\begin{longtable}{@{}L{5.2cm}L{9.8cm}@{}}
+\caption{Trách nhiệm các mô-đun chính}\\
 \toprule Mô-đun & Trách nhiệm \\\midrule\endhead
-\src{App.jsx} & Điều hướng vai trò, thông tin truy cập và trạng thái cấp ứng dụng.\\
-\src{StudentGateway.jsx} & Nhập mã đề, chuẩn bị thông tin trước khi vào phòng thi.\\
-\src{StudentExam.jsx} & Giao diện câu hỏi, timer, camera, mô hình, quy tắc cảnh báo và nộp bài.\\
-\src{useBrowserLockdown.js} & Listener sự kiện trang, giới hạn thao tác và callback gửi sự kiện khi đang thi.\\
-\src{ProctorDashboard.jsx} & Tổng quan, dữ liệu sinh viên, sự kiện và ảnh có token.\\
-\src{ExamManagement.jsx} & Nhập, công bố, xem kết quả và xuất dữ liệu đề thi.\\
-\src{ModalShell.jsx} & Khung hộp thoại dùng lại cho các thao tác giao diện.\\
-\src{main.py} & API sự kiện, thống kê, ảnh, health và khởi tạo ứng dụng.\\
-\src{exams_router.py} & API vòng đời đề, lấy đề, chấm và xuất kết quả.\\
-\src{exam_parser.py} & Phân tích XLSX/DOCX, kiểm tra câu hỏi và loại trùng.\\
-\src{database.py} & Engine, session, các bảng và tuần tự hóa dữ liệu.\\
-\src{auth.py} & Đọc token và xác minh quyền giám thị.\\
-\src{scheduler.py} & Tác vụ xóa ảnh hết hạn, giữ metadata.\\
+\src{App.jsx} & Phân vai trò, danh tính sinh viên, đăng nhập và đăng xuất giảng viên.\\
+\src{StudentExam.jsx} & Chọn đề, xin vào thi, khôi phục tiến độ, timer, camera, AI và nộp bài.\\
+\src{StudentGateway.jsx} & Thành phần trình bày các bước trong luồng sinh viên.\\
+\src{EnrollmentApproval.jsx} & Danh sách yêu cầu và thao tác phê duyệt, từ chối, thu hồi.\\
+\src{ExamManagement.jsx} & Nhập đề, lịch công bố, đóng đề, xem điểm và xuất Excel.\\
+\src{ProctorDashboard.jsx} & Không gian giảng viên, nhật ký, bộ lọc và thống kê.\\
+\src{useBrowserLockdown.js} & Sự kiện trang, fullscreen, bàn phím và clipboard.\\
+\src{main.py} & API tài khoản, vi phạm, ảnh, health; phục vụ frontend và vòng đời ứng dụng.\\
+\src{exams_router.py} & Đề thi, yêu cầu ghi danh, phê duyệt, thời gian, chấm và xuất điểm.\\
+\src{auth.py} & Mật khẩu, token, giới hạn đăng nhập và dependency kiểm tra phiên.\\
+\src{database.py} & Chín bảng ORM, migration, kiểm tra toàn vẹn và sao lưu.\\
+\src{exam_parser.py} & Bộ đọc, kiểm tra và chuẩn hóa đề Excel/Word.\\
+\src{scheduler.py} & Lịch dọn ảnh và sao lưu DB.\\
+\src{recover_db.py} & Phục hồi dữ liệu sang DB mới, không ghi đè nguồn.\\
 \bottomrule
 \end{longtable}
 
 \section{Thiết kế cơ sở dữ liệu}
-\subsection{Mô hình quan hệ}
+\subsection{Sơ đồ ERD và quan hệ thực thể}
+Mô hình có chín bảng. Teacher sở hữu Exam và TeacherSession. Exam liên kết Question, ExamEnrollment, ExamStart và ExamSubmission. Violation tham chiếu trực tiếp Exam và ExamEnrollment. SubmissionAnswer lưu từng câu trả lời, tham chiếu bài nộp và câu hỏi gốc.
+\begin{figure}[H]\centering\input{diagrams/02-erd.tex}
+\caption{Sơ đồ ERD vật lý: khóa ngoại giữa chín bảng.}\end{figure}
 
+Các quan hệ từ bảng cha tới bảng con đều có lực lượng một--nhiều: một giảng viên có nhiều phiên và đề; một đề có nhiều câu hỏi, ghi danh, mốc thi và bài nộp; một bài nộp có nhiều câu trả lời. Một câu hỏi có thể được tham chiếu bởi nhiều câu trả lời ở các bài nộp khác nhau. Vi phạm có thể tham chiếu đề và ghi danh; các khóa này cho phép rỗng để tương thích dữ liệu cũ. Người duyệt (decided\_by) và chủ sở hữu đề (teacher\_id trong exams) cũng là tham chiếu tùy chọn tới giảng viên.
 
-Bảng \src{exams} sở hữu tập câu hỏi, các mốc bắt đầu và các bài nộp. Bảng \src{exam_starts} lưu duy nhất giờ bắt đầu cho mỗi cặp đề--mã sinh viên; bảng này không phải phiên đăng nhập hay nơi lưu nháp đáp án. Bảng \src{submission_answers} lưu từng lựa chọn gắn với câu hỏi gốc và một bản nộp. Ràng buộc duy nhất trên cặp \src{exam_id, student_id} trong bảng bài nộp hạn chế ghi hai lần. Bảng \src{violations} hiện đứng riêng, không có \src{exam_id} hoặc khóa ngoại đến một phiên làm bài.
-
-Thiết kế này đơn giản hóa ghi sự kiện, nhưng khi cùng một mã sinh viên tham gia nhiều đề, việc quy một sự kiện về đúng bài thi phụ thuộc điều kiện thời gian. Nếu đề không có thời điểm mở và đóng, phép tổng hợp có thể tính cả sự kiện của lần thi khác. Hướng cải tiến là cấp mã phiên thi tại backend và bắt buộc mọi sự kiện tham chiếu phiên đó.
-
-\subsection{Các trường và ràng buộc quan trọng}
-\begin{longtable}{@{}L{3cm}L{7.5cm}L{4.1cm}@{}}
-\caption{Tóm tắt từ điển dữ liệu}\\
-\toprule Bảng & Nhóm trường chính & Ràng buộc / ý nghĩa \\\midrule\endfirsthead
-\toprule Bảng & Nhóm trường chính & Ràng buộc / ý nghĩa \\\midrule\endhead
-exams & id; exam\_code; title; duration\_minutes; pass\_score; shuffle\_questions; status; start\_time; end\_time; created\_by; created\_at. & Mã đề duy nhất; trạng thái mặc định DRAFT; lịch thi có thể rỗng.\\
-exam\_starts & id; exam\_id; student\_id; started\_at. & FK tới exams; UNIQUE(exam\_id, student\_id).\\
-questions & id; exam\_id; order\_index; content; option\_a/b/c/d; correct\_option; score\_weight. & Thuộc một đề; lưu đáp án chuẩn tại máy chủ.\\
-\src{exam_submissions} & id; exam\_id; student\_id; student\_name; started\_at; submitted\_at; total\_score; correct\_count; total\_questions; status. & UNIQUE theo đề và mã sinh viên. started\_at được lấy từ exam\_starts nếu có bản ghi bắt đầu.\\
-\src{submission_answers} & id; submission\_id; question\_id; selected\_option; is\_correct. & Liên kết bản nộp và câu hỏi; lựa chọn có thể rỗng.\\
-violations & id; student\_id; student\_name; violation\_type; captured\_at; image\_path; created\_at. & Chỉ mục theo mã sinh viên, loại và thời điểm; ảnh có thể rỗng hoặc đã bị dọn.\\
+\subsection{Từ điển dữ liệu rút gọn}
+\begin{longtable}{@{}L{3.2cm}L{7.4cm}L{4cm}@{}}
+\caption{Các bảng và ràng buộc chính}\\
+\toprule Bảng & Trường tiêu biểu & Ràng buộc \\\midrule\endhead
+\src{teachers} & id, teacher\_code, full\_name, password\_hash, password\_salt. & Mã giảng viên duy nhất.\\
+\src{teacher_sessions} & teacher\_id, token\_hash, expires\_at, ip. & FK giảng viên; token băm duy nhất.\\
+\src{exams} & exam\_code, subject, teacher\_id, join\_open\_minutes, duration, status, start/end\_time. & Mã đề duy nhất; FK giảng viên.\\
+\src{questions} & exam\_id, content, option\_a/b/c/d, correct\_option, score\_weight. & FK đề thi.\\
+\src{exam_enrollments} & exam\_id, student\_id/name, status, decided\_by, request/session\_token\_hash, session\_token\_issued. & UNIQUE đề--sinh viên; FK đề và người duyệt.\\
+\src{exam_starts} & exam\_id, student\_id, started\_at. & UNIQUE đề--sinh viên.\\
+\src{exam_submissions} & exam\_id, student\_id/name, started/submitted\_at, total\_score, status. & UNIQUE đề--sinh viên.\\
+\src{submission_answers} & submission\_id, question\_id, selected\_option, is\_correct. & FK bài nộp và câu hỏi.\\
+\src{violations} & student\_id/name, exam\_id, enrollment\_id, violation\_type, captured\_at, image\_path. & FK đề và lượt ghi danh; ảnh có thể rỗng.\\
 \bottomrule
 \end{longtable}
 
-Tên bảng và trường phản ánh cài đặt hiện có. Các cột chuỗi có khai báo độ dài trong mô hình ORM, nhưng không nên chỉ dựa vào khai báo này để bảo đảm kiểm tra đầu vào trên SQLite. Các điều kiện dữ liệu quan trọng cần được kiểm tra ở mô hình yêu cầu, nghiệp vụ hoặc ràng buộc CSDL phù hợp.
+Trong sơ đồ, mũi tên hướng từ bảng chứa khóa ngoại tới bảng được tham chiếu. Không có bảng tài khoản sinh viên độc lập. Danh tính tự khai được lưu trong lượt ghi danh; các bảng mốc bắt đầu và bài nộp vẫn sử dụng cặp đề--mã sinh viên. Hai khóa ngoại của vi phạm cho phép truy vết phiên, trong khi bộ tổng hợp bảng điểm hiện đếm theo student\_id và exam\_id.
 
-\section{Luồng dữ liệu và trạng thái}
-\subsection{Luồng nộp bài}
+\section{Trạng thái và luồng nghiệp vụ}
+Đề thi chuyển DRAFT sang PUBLISHED và có thể chuyển CLOSED. Lượt ghi danh có các trạng thái PENDING, APPROVED, REJECTED và REVOKED. Hủy yêu cầu chờ và thu hồi phiên phải được hiểu theo xử lý API, không tự thêm trạng thái CANCELED vào mô hình.
+\begin{figure}[H]\centering\input{diagrams/03-phien.tex}
+\caption{Luồng yêu cầu và sử dụng phiên thi.}\end{figure}
 
+Ở bước nộp bài, danh tính lấy từ phiên đã xác thực. Câu trả lời tham chiếu bằng ID nên thứ tự câu trên giao diện không làm thay đổi cách chấm. Payload lặp ID có hành vi lựa chọn cuối ghi đè; ID không thuộc đề không được chấm vì vòng lặp chỉ dựa trên câu hỏi trong CSDL.
+\begin{figure}[H]\centering\input{diagrams/04-nop-bai.tex}
+\caption{Các bước kiểm tra trước khi chấm và lưu bài nộp.}\end{figure}
 
-Câu trả lời được tham chiếu bằng ID câu hỏi thay vì vị trí trên giao diện, nên có thể xáo trộn thứ tự câu mà vẫn chấm theo đúng câu gốc. Tuy nhiên, nếu một payload lặp ID câu hỏi, cách tạo ánh xạ ở backend làm lựa chọn xuất hiện sau ghi đè lựa chọn trước. Đây là hành vi hiện tại cần được biết khi xây dựng kiểm thử biên; hướng chặt chẽ hơn là từ chối yêu cầu trùng ID.
+\section{Ranh giới tin cậy}
+Backend không tin mã sinh viên do client gửi trong bài nộp hoặc sự kiện; thông tin này được lấy từ phiên. Tuy nhiên nhãn AI và thời điểm chụp vẫn bắt nguồn từ client. Kiểm tra kiểu nhãn, độ lệch giờ, kích thước ảnh và tần suất chỉ kiểm soát đầu vào, không chứng minh cảnh báo phản ánh đúng hành vi thật.
 
-\subsection{Vòng đời đề thi và dữ liệu giám sát}
-Đề mới tạo có trạng thái DRAFT; thao tác công bố chuyển thành PUBLISHED. Mã nguồn định nghĩa CLOSED và có nhánh kiểm tra trạng thái này, nhưng chưa có tuyến riêng để đóng đề. Cần phân biệt sự tồn tại của một hằng trạng thái với một quy trình chuyển trạng thái đầy đủ trên giao diện và API.
-
-Sự kiện giám sát đi từ khung hình đến nhãn, được kiểm tra khoảng nghỉ, thêm vào nhật ký cục bộ và gửi mạng. Ảnh được tách ra tệp, còn thông tin tra cứu ở CSDL. Khi dọn ảnh, metadata vẫn còn. Do đó, số ``tổng vi phạm'' và số ``có ảnh chứng cứ'' có thể khác nhau mà không nhất thiết là lỗi thống kê.
-
-\section{Thiết kế an toàn và các ranh giới tin cậy}
-Các API quản lý và đọc ảnh kiểm tra token giám thị; API sinh viên lấy đề, nộp bài và gửi sự kiện không yêu cầu token này. Cách tách quyền giúp sinh viên không cần biết bí mật quản lý, nhưng chưa cung cấp chứng thực riêng cho sinh viên. Một phía gửi có thể tự chọn mã sinh viên nếu không có lớp bảo vệ bổ sung.
-
-Token là bí mật dùng chung, không phải JWT và không có vai trò chi tiết theo từng giảng viên. Backend chấp nhận token qua header hoặc query; sử dụng header phù hợp hơn để hạn chế xuất hiện bí mật trong URL. Giao diện lấy ảnh bằng fetch có token rồi tạo URL đối tượng, thay vì công khai thư mục ảnh. Cơ chế này kiểm soát truy cập ảnh, nhưng không thay thế chính sách cấp quyền, quản lý phiên và nhật ký truy cập khi đưa vào vận hành thật.
-
-\section{Bộ sơ đồ hệ thống cập nhật}
-Các sơ đồ dưới đây biểu diễn commit khảo sát ngày 01/10/2026. Màu xanh dương thể hiện máy khách, xanh lá là xử lý máy chủ, vàng là dữ liệu, tím là hạ tầng ngoài và cam là điều kiện hoặc ngoại lệ. Sơ đồ ngữ cảnh, DFD và ERD bổ trợ cho UML; không gọi tất cả các sơ đồ là UML. Tệp draw.io kèm theo cho phép sửa nhãn, nút và đường nối.
-
-\clearpage
-\subsection{Ngữ cảnh hệ thống}
-Ngữ cảnh xác định hai tác nhân và nguồn tài nguyên AI bên ngoài. Cloudflare được thể hiện ở sơ đồ triển khai vì là hạ tầng truyền dẫn, không phải tác nhân nghiệp vụ.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/01-context.pdf}
-\caption{Ngữ cảnh hệ thống của EduShield AI.}\label{fig:01-context}
-\end{figure}
-
-\clearpage
-\subsection{Ca sử dụng chính}
-Ca sử dụng bao quát thao tác của sinh viên và giảng viên. Chọn vai trò ở giao diện không cấp quyền quản lý; backend vẫn xác minh token.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/02-usecase.pdf}
-\caption{Ca sử dụng chính của EduShield AI.}\label{fig:02-usecase}
-\end{figure}
-
-\clearpage
-\subsection{Cấu trúc thành phần}
-Sơ đồ thành phần thể hiện trách nhiệm chính và phụ thuộc mức mô-đun, không phải sơ đồ mọi lời gọi hàm. Các máy khách chia sẻ API nghiệp vụ.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/03-components.pdf}
-\caption{Cấu trúc thành phần của EduShield AI.}\label{fig:03-components}
-\end{figure}
-
-\clearpage
-\subsection{Triển khai HTTPS đa thiết bị}
-Web và API được phục vụ cùng origin trên FastAPI. APK là kênh đã chạy theo xác nhận tác giả nhưng chưa có nguồn native để tái lập trong repo main. iOS là Safari/PWA.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/04-deployment.pdf}
-\caption{Triển khai HTTPS đa thiết bị của EduShield AI.}\label{fig:04-deployment}
-\end{figure}
-
-\clearpage
-\subsection{Luồng dữ liệu mức 1}
-DFD mức 1 phân rã các xử lý nghiệp vụ và kho dữ liệu. Suy luận hình ảnh nằm ở máy khách; backend nhận sự kiện đã xử lý thay vì nhận luồng video liên tục.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/05-dfd.pdf}
-\caption{Luồng dữ liệu mức 1 của EduShield AI.}\label{fig:05-dfd}
-\end{figure}
-
-\clearpage
-\subsection{Mô hình dữ liệu quan hệ}
-ERD bổ sung exam\_starts và các quan hệ khóa ngoại thực tế. Đường đứt tới violations là phép ghép logic theo mã sinh viên và thời gian, không phải quan hệ được CSDL cưỡng chế.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/06-erd.pdf}
-\caption{Mô hình dữ liệu quan hệ của EduShield AI.}\label{fig:06-erd}
-\end{figure}
-
-\clearpage
-\subsection{Luồng hoạt động toàn hệ thống}
-Luồng tổng thể nối việc chuẩn bị đề và tunnel với quá trình làm bài, giám sát song song, nộp và tra cứu kết quả. Các nhánh lỗi mạng/camera được giải thích ở phần triển khai và kiểm thử.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/07-activity.pdf}
-\caption{Luồng hoạt động toàn hệ thống của EduShield AI.}\label{fig:07-activity}
-\end{figure}
-
-\clearpage
-\subsection{Tuần tự bắt đầu và tiếp tục thời gian}
-Thời gian còn lại do API start tính từ lần bắt đầu đầu tiên. Việc vào lại không phục hồi lựa chọn cũ; nhánh fallback vẫn cấp đủ thời lượng nếu API lỗi ngoài các trạng thái chặn đã nêu.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/08-seq-start.pdf}
-\caption{Tuần tự bắt đầu và tiếp tục thời gian của EduShield AI.}\label{fig:08-seq-start}
-\end{figure}
-
-\clearpage
-\subsection{Tuần tự ghi sự kiện và xem minh chứng}
-Giảng viên đọc sự kiện bằng polling, không dùng WebSocket. Khi chuyển ứng dụng, camera có thể không cung cấp được ảnh; payload vẫn cho phép metadata không kèm ảnh.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/09-seq-event.pdf}
-\caption{Tuần tự ghi sự kiện và xem minh chứng của EduShield AI.}\label{fig:09-seq-event}
-\end{figure}
-
-\clearpage
-\subsection{Tuần tự nộp và chấm bài}
-Điểm được tính từ đáp án trong CSDL và ghi cùng chi tiết bài nộp. UNIQUE chống trùng là lớp bảo vệ cuối cùng; deadline chưa được cưỡng chế tại submit.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/10-seq-submit.pdf}
-\caption{Tuần tự nộp và chấm bài của EduShield AI.}\label{fig:10-seq-submit}
-\end{figure}
-
-\clearpage
-\subsection{Trạng thái tương tác của bài thi}
-Đây là trạng thái tương tác của giao diện, không phải tập trạng thái lưu nguyên dạng trong CSDL. Xuống nền không có nghĩa là backend tạm dừng thời gian thi.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/11-state.pdf}
-\caption{Trạng thái tương tác của bài thi của EduShield AI.}\label{fig:11-state}
-\end{figure}
-
-\clearpage
-\subsection{Luồng giám sát AI tại máy khách}
-Luồng AI giữ thứ tự ưu tiên nhãn và cooldown. Chu kỳ mobile giảm số lượt suy luận; không suy ra độ chính xác hoặc độ trễ thực đo chỉ từ thông số này.
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth,height=0.70\textheight,keepaspectratio]{diagrams/12-ai-flow.pdf}
-\caption{Luồng giám sát AI tại máy khách của EduShield AI.}\label{fig:12-ai-flow}
-\end{figure}
+Quyền sở hữu đề được kiểm tra trong các API đề, ghi danh và kết quả. Các tuyến nhật ký, thống kê và ảnh yêu cầu giảng viên đăng nhập nhưng chưa thể hiện cách cô lập dữ liệu theo lớp ở mọi truy vấn. Vì vậy, không mô tả hệ thống như một nền tảng nhiều đơn vị với phân quyền dữ liệu hoàn chỉnh.

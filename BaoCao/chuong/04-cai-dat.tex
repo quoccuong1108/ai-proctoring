@@ -1,143 +1,110 @@
 \chapter{Cài đặt và tích hợp hệ thống}
 \markboth{Chương 4. Cài đặt hệ thống}{}
-\section{Môi trường và cấu trúc dự án}
-Kho mã nguồn gồm hai thư mục chính \src{frontend} và \src{backend}. Frontend khai báo React 19, Vite 8, Tailwind CSS 4 cùng MediaPipe Tasks Vision, Framer Motion và Lucide. Backend khai báo FastAPI, Uvicorn, SQLAlchemy, APScheduler, python-dotenv, openpyxl, python-docx và python-multipart. Nhiều ràng buộc phiên bản phía Python là cận dưới, vì vậy cùng một tệp yêu cầu có thể cài các phiên bản khác nhau ở các thời điểm khác nhau.
+\section{Công nghệ và tổ chức mã nguồn}
+Frontend sử dụng React 19, Vite 8, Tailwind CSS 4, MediaPipe Tasks Vision, Framer Motion và Lucide. Backend dùng FastAPI, Uvicorn, SQLAlchemy, APScheduler, python-dotenv, openpyxl, python-docx và python-multipart. Flutter nằm trong thư mục mobile, là phần mở rộng độc lập với frontend web.
 
-Báo cáo sử dụng tên phiên bản chính để mô tả kiến trúc, còn tệp \src{package-lock.json} và bản chụp môi trường kiểm thử là căn cứ tái lập cụ thể. Không nên tự thay một phiên bản phụ thuộc chỉ vì mới hơn khi chưa kiểm tra tính tương thích. Mô hình MediaPipe và tài nguyên tải từ CDN cũng cần được đưa vào kế hoạch chốt phiên bản.
+Các phụ thuộc JavaScript có package-lock.json; requirements.txt của Python chủ yếu khai báo phiên bản tối thiểu. Vì vậy, môi trường kiểm thử cần lưu phiên bản thực tế đã cài để tái lập. Mô hình được tải từ đường dẫn phiên bản cụ thể, nhưng WASM hiện sử dụng đường dẫn latest; đây là giới hạn đối với tính ổn định khi nguồn ngoài thay đổi.
 
-\section{Khởi tạo backend và lớp dữ liệu}
-\subsection{Cấu hình kết nối}
-Chuỗi kết nối mặc định là \src{sqlite:///edushield.db}; vị trí tệp phụ thuộc thư mục làm việc khi chạy tiến trình. Engine bật \src{check_same_thread=False}, thời gian chờ 15 giây và các PRAGMA gồm WAL, \src{synchronous=NORMAL}, \src{busy_timeout=15000}, \src{foreign_keys=ON}. Các thiết lập này hỗ trợ cách API sử dụng SQLite nhưng vẫn cần kiểm thử khi nhiều yêu cầu ghi đến cùng lúc.
+\section{Tài khoản và phiên truy cập}
+\subsection{Giảng viên}
+Tài khoản giảng viên được tạo bằng create\_teacher.py. Mã theo định dạng GV-xxxx; mật khẩu được nhập tương tác. auth.py dùng scrypt cùng salt ngẫu nhiên; đường kiểm tra còn hỗ trợ hash PBKDF2 cũ và nâng hash sau đăng nhập thành công. CSDL không lưu mật khẩu dạng rõ.
 
-CSDL được tạo bằng \src{create_all}. Cơ chế này tạo bảng chưa tồn tại, không phải hệ thống migration có khả năng tự nâng cấu trúc bảng cũ theo mọi thay đổi mô hình. Khi cập nhật mã có thêm cột hoặc thay đổi ràng buộc, cần sao lưu và có bước chuyển đổi dữ liệu rõ ràng. Không nên xóa CSDL đang sử dụng chỉ để làm ứng dụng chạy lại.
+Đăng nhập thành công tạo token ngẫu nhiên với thời hạn 12 giờ. Máy chủ lưu SHA-256 của token trong teacher\_sessions; frontend giữ token trong sessionStorage và gửi qua Authorization: Bearer. Đăng xuất vô hiệu hóa phiên phía server. Có giới hạn số lần đăng nhập sai theo IP. Cơ chế token legacy chỉ được bật khi cấu hình ALLOW\_LEGACY\_TOKEN=1 và có bí mật tương ứng; đây không phải luồng đăng nhập chính.
 
-\subsection{Token giám thị}
-Biến môi trường \src{PROCTOR_API_TOKEN} cung cấp bí mật kiểm tra quyền. Nếu không cấu hình, ứng dụng sinh token ngẫu nhiên khi khởi động và ghi ra nhật ký. Cách này thuận tiện cho thử nghiệm nhưng token có thể thay đổi sau khi khởi động lại và người đọc log có thể thấy bí mật.
+\subsection{Sinh viên và phê duyệt}
+Mã sinh viên mặc định có dạng SV- theo sau bởi 8 đến 12 chữ số, có thể thay đổi bằng STUDENT\_ID\_REGEX. Sau khi gửi yêu cầu vào thi, sinh viên nhận request token và dùng header X-Request-Token để theo dõi trạng thái. Phê duyệt chưa trực tiếp trả token thi cho giảng viên; lần kiểm tra trạng thái hợp lệ sau đó cấp token thi một lần cho sinh viên. Token được truyền bằng X-Exam-Session ở các yêu cầu lấy đề, bắt đầu, nộp và gửi vi phạm.
 
-Hàm xác minh sử dụng phép so sánh \src{secrets.compare_digest}. API đọc token từ header \src{X-Proctor-Token} hoặc tham số query. Các yêu cầu quản lý thiếu hoặc sai token bị từ chối. Đây là cơ chế khóa truy cập đơn giản; chưa có tài khoản giảng viên riêng, đổi mật khẩu, thu hồi phiên theo người dùng hay phân quyền theo lớp học.
+Dependency get\_exam\_session kiểm tra bản băm token, trạng thái APPROVED và cờ đã cấp phiên. Backend lấy student\_id, student\_name và exam\_id từ lượt ghi danh. Các schema bài nộp và vi phạm không chấp nhận trường ngoài quy định, giúp tránh việc client tự thay danh tính trong những payload này.
 
-\section{Nhập đề từ tệp}
-\subsection{Kiểm tra và chuẩn hóa}
-Giới hạn tệp được đặt ở 5 MiB và giới hạn bộ đề là 200 câu hợp lệ sau xử lý. Hàm API hiện đọc tệp vào bộ nhớ trước khi kiểm tra độ lớn, vì vậy giới hạn nghiệp vụ chưa đồng nghĩa với chặn sớm lưu lượng tải lên ở tầng HTTP. Khi triển khai cần cấu hình giới hạn body ở proxy hoặc cơ chế đọc có kiểm soát.
+\section{Nhập đề và quản lý lịch}
+API upload nhận tên đề, môn học, mã tùy chọn và số phút cho phép xin vào sớm. Tệp giới hạn 5 MiB; bộ đề tối đa 200 câu hợp lệ. Backend đọc worksheet đầu của Excel theo bảy cột, hoặc các đoạn Word theo mẫu câu hỏi--A/B/C/D--đáp án. Dòng thiếu dữ liệu, đáp án sai định dạng và câu trùng được ghi nhận khi phân tích.
 
-Mã đề được chuẩn hóa theo hướng loại dấu tiếng Việt, xử lý chữ Đ, chuyển chữ hoa và giữ các ký tự cho phép. Nếu người dùng không cấp mã, hệ thống tạo mã dựa vào tiêu đề kết hợp phần ngẫu nhiên. Mã đề có ràng buộc duy nhất trong CSDL. Mã được cung cấp cho sinh viên là khóa tra cứu đề, không phải một phương thức chứng thực danh tính.
+Câu trùng được xác định bằng nội dung đã strip và chuyển chữ thường, không phải so khớp ngữ nghĩa. Sau xử lý, thứ tự câu được đánh lại và trọng số mặc định chia đều theo thang 10. Mã đề được chuẩn hóa về ký tự cho phép và kiểm tra duy nhất. Đề mới gắn với tài khoản giảng viên đang đăng nhập.
 
-\subsection{Đọc Excel và Word}
-Với Excel, bộ phân tích đọc worksheet đầu tiên, bỏ dòng đầu làm tiêu đề, sau đó ánh xạ bảy cột vào số thứ tự, nội dung, bốn lựa chọn và đáp án đúng. Dòng trắng được bỏ qua. Câu thiếu nội dung hoặc phương án cần thiết, hoặc có đáp án ngoài A--D, bị loại và ghi lỗi.
+Công bố yêu cầu thời lượng 1--600 phút, ngưỡng đạt 0--10 và hai mốc mở/đóng hợp lệ. Giao diện cho phép nhập lịch và chuyển thời gian sang dạng gửi API. Sinh viên chỉ truy cập theo điều kiện lịch và phiên của đề. Xáo trộn áp dụng cho thứ tự câu hỏi, không phải hoán đổi các phương án A--D. Thứ tự đã hiển thị có thể được giữ ở tiến độ cục bộ trong phiên trình duyệt.
 
-Với Word, bộ phân tích đọc các đoạn văn theo khuôn dạng câu hỏi và các dòng A, B, C, D, đáp án. Luồng này không dùng OCR và không có bộ hiểu bố cục tài liệu tổng quát. Vì thế, tệp Word có câu hỏi trong bảng, ảnh hoặc ký hiệu không theo khuôn dạng cần được chuẩn hóa trước.
+\section{Mốc bắt đầu, khôi phục và hạn nộp}
+Lần bắt đầu đầu tiên tạo exam\_starts với ràng buộc duy nhất theo đề và sinh viên. Gọi lại sử dụng mốc đã có để tính thời gian còn lại; không tạo thời lượng mới. Frontend xác định thời điểm kết thúc cục bộ bằng thời gian còn lại từ server và dùng Date.now() khi cập nhật đồng hồ, thay vì chỉ trừ dần từng giây.
 
-Sau khi đọc, câu trùng nội dung được xác định bằng chuỗi đã bỏ khoảng trắng hai đầu và chuyển chữ thường; câu đầu tiên được giữ. Đây không phải so khớp ngữ nghĩa: hai câu diễn đạt khác nhau nhưng cùng nghĩa vẫn có thể được xem là khác; hai câu cùng nội dung nhưng lựa chọn khác có thể bị gộp theo nội dung. Thứ tự được đánh lại và trọng số mặc định chia đều trên thang 10.
+sessionStorage lưu đáp án theo question.id, câu hiện tại, thứ tự câu và thông tin phiên. Khi tải lại, frontend lọc các đáp án còn hợp lệ, phục hồi thứ tự nếu khớp bộ câu và gọi lại API để đồng bộ thời gian. Cơ chế này hỗ trợ tải lại trong phiên trình duyệt, chưa phải lưu nháp trên server hoặc khôi phục từ thiết bị khác.
 
-\section{Công bố, lấy đề và chấm bài}
-API công bố kiểm tra thời lượng trong khoảng 1--600 phút, ngưỡng đạt trong khoảng 0--10 và tính hợp lệ của thứ tự thời điểm mở/đóng khi có cả hai. Cấu trúc yêu cầu hỗ trợ lịch mở/đóng; giao diện công bố hiện tập trung vào thời lượng, điểm đạt và xáo trộn. Không nên diễn đạt rằng mọi khả năng của API đều đã có ô nhập tương ứng trên giao diện.
+Đặt $t_s$ là giờ bắt đầu tại server, $D$ là thời lượng tính bằng giây và $t_e$ là giờ đóng đề. Hạn tiếp nhận bài nộp là:
+\begin{equation}
+ t_{\mathrm{deadline}}=\min(t_s+D+15\text{ giây},\ t_e).
+\end{equation}
+Khoảng 15 giây dành cho độ trễ gửi bài, không kéo dài giờ đóng đề. API từ chối khi thiếu mốc bắt đầu hoặc giờ server vượt hạn. Cờ auto\_submitted được dùng ghi trạng thái nộp, không thay thế kiểm tra thời gian tại backend.
 
-Khi sinh viên lấy đề, backend kiểm tra trạng thái PUBLISHED và lịch thi, sau đó chỉ trả câu hỏi không chứa \src{correct_option}. Nếu bật xáo trộn, thứ tự danh sách câu hỏi được đảo ở backend. Mã nguồn không thể hiện việc xáo trộn các lựa chọn A--D, cũng chưa lưu cố định một thứ tự câu hỏi theo phiên thi phía máy chủ.
+\section{Chấm bài và xuất kết quả}
+Backend truy vấn đáp án chuẩn, tạo ánh xạ lựa chọn theo ID câu và cộng trọng số câu đúng. Điểm được giới hạn tối đa 10 và làm tròn hai chữ số. Bài nộp cùng các câu trả lời được ghi trong giao dịch. Ràng buộc UNIQUE theo đề và sinh viên là lớp cuối chống bản nộp trùng; xung đột được trả về HTTP 409.
 
-Khi nộp, backend truy vấn lại đáp án chuẩn, tạo ánh xạ lựa chọn theo ID, tính từng câu đúng và lưu kết quả. Ràng buộc duy nhất xử lý cả trường hợp xung đột dữ liệu; lần nộp thứ hai trả HTTP 409. Câu hỏi lạ trong payload không được chấm vì vòng lặp dựa trên bộ câu của đề, nhưng từ chối rõ ràng các ID ngoài đề sẽ là cải tiến hữu ích cho tính minh bạch API.
+Bảng điểm gồm mã, tên sinh viên, điểm, số câu đúng, thời điểm nộp, trạng thái và số vi phạm. Phép đếm vi phạm dùng student\_id cùng exam\_id, không ghép đơn thuần theo khoảng thời gian. Giảng viên có thể xuất bảng điểm Excel. Số vi phạm không được đưa vào công thức trừ điểm.
 
-Việc kiểm tra lịch ở tuyến lấy đề không tự bảo vệ tuyến nộp bài. Luồng nộp hiện chưa dựa trên thời điểm bắt đầu được máy chủ cấp để xác định hạn nộp cho từng sinh viên. Cờ tự nộp do máy khách gửi lên cũng không phải bằng chứng độc lập về việc hết giờ. Đây là khác biệt giữa bộ đếm hiển thị và kiểm soát thời gian thi có tính cưỡng chế.
+\section{Khởi tạo camera và mô hình AI}
+Camera được yêu cầu với kích thước mong muốn 640$\times$480 và hướng người dùng; độ phân giải thực tế phụ thuộc thiết bị. Face Landmarker chạy VIDEO, tối đa ba khuôn mặt, ngưỡng phát hiện và theo dõi 0,5; ưu tiên GPU rồi thử CPU khi không khởi tạo được. EfficientDet Lite0 chạy CPU, tối đa năm kết quả và ngưỡng 0,25.
 
-\section{Khởi tạo camera và mô hình}
-Camera được yêu cầu với kích thước mong muốn 640$\times$480 và hướng người dùng. Trình duyệt có thể cấp độ phân giải thực tế khác tùy thiết bị. Face Landmarker chạy ở chế độ VIDEO, số khuôn mặt tối đa cấu hình là 3, ngưỡng phát hiện và theo dõi đều 0,5, ưu tiên GPU delegate và thử lại bằng CPU khi GPU không khởi tạo được. Object Detector sử dụng CPU, tối đa 5 kết quả và ngưỡng điểm 0,25.
+Nếu mô hình vật thể tải thất bại, code tiếp tục với phần khuôn mặt và ghi cảnh báo; tính năng phát hiện điện thoại khi đó không hoạt động đầy đủ. Các mô hình được dùng để suy luận từ trọng số có sẵn, không có pipeline huấn luyện trong dự án.
 
-Tệp khuôn mặt thuộc đường dẫn mô hình \src{face_landmarker/float16/1}; mô hình vật thể thuộc \src{efficientdet_lite0/int8/1}. Các tệp này được tải để suy luận, không được huấn luyện lại trong kho mã nguồn. Nếu khởi tạo mô hình vật thể thất bại, mã có nhánh tiếp tục với phần khuôn mặt; điều này giúp một phần chức năng còn hoạt động nhưng không được thông báo như thể phát hiện điện thoại vẫn đầy đủ.
+\begin{table}[htbp]\centering
+\caption{Thông số AI và ảnh sự kiện trên web}
+\begin{tabularx}{\textwidth}{@{}L{6cm}X@{}}\toprule
+Thông số & Giá trị \\\midrule
+Chu kỳ phân tích & PC 300 ms; điện thoại 500 ms.\\
+Khoảng nghỉ cùng nhãn & 5 giây.\\
+Điểm điện thoại & Nhãn cell phone, score $>0{,}25$.\\
+Landmarks dùng quay đầu & Mũi 1; mắt 133 và 362.\\
+Ngưỡng hình học & Độ lệch $>0{,}25$ hoặc bất đối xứng $>1{,}25$.\\
+Quay đầu liên tiếp & 12 lượt PC; 8 lượt mobile.\\
+Độ sáng & Canvas 64$\times$48; trung bình $<15$.\\
+Ảnh bằng chứng & JPEG, rộng 320 px, giữ tỷ lệ, chất lượng 0,6.\\
+\bottomrule\end{tabularx}\end{table}
 
-\begin{table}[htbp]
-\centering
-\caption{Thông số suy luận và cảnh báo trong mã nguồn}
-\begin{tabularx}{\textwidth}{@{}XX@{}}\toprule
-Thông số & Giá trị cấu hình \\\midrule
-Chu kỳ gọi phát hiện & PC: 300 ms; mobile: 500 ms (khoảng 2 lượt/giây danh nghĩa).\\
-Khoảng nghỉ cho mỗi nhãn & 5.000 ms.\\
-Số mặt tối đa Face Landmarker & 3.\\
-Điểm điện thoại & Nhãn cell phone, điểm lớn hơn 0,25.\\
-Điểm mốc hình học & Mũi 1; hai điểm vùng mắt 133 và 362.\\
-Quay đầu liên tiếp & PC: 12 lượt; mobile: 8 lượt, với $r>0{,}25$ hoặc $a>1{,}25$.\\
-Khung hình tính độ sáng & 64$\times$48; lấy mẫu thưa trên dữ liệu màu.\\
-Ngưỡng khung hình tối & Trung bình độ sáng nhỏ hơn 15.\\
-Ảnh minh chứng & Rộng 320 px; chiều cao theo tỷ lệ video; JPEG, chất lượng 0,6.\\\bottomrule
-\end{tabularx}
-\end{table}
-
-\Needspace{20\baselineskip}
-\section{Thuật toán phân loại và ghi nhận sự kiện}
+\section{Quy tắc chọn nhãn và gửi sự kiện}
 \begin{algorithm}[H]
-\caption{Quy tắc chọn trạng thái chính từ một lượt phát hiện}
-\begin{algorithmic}[1]
-\Require Khung hình, kết quả mặt, kết quả vật thể, bộ đếm quay đầu $q$
-\Ensure Trạng thái $s$ và bộ đếm cập nhật
-\If{độ sáng trung bình $<15$}
- \State $s\gets\text{CAMERA\_BLOCKED}$; $q\gets0$
-\ElsIf{có cell phone với điểm $>0{,}25$}
- \State $s\gets\text{PHONE\_DETECTED}$; $q\gets0$
-\ElsIf{số khuôn mặt $>1$}
- \State $s\gets\text{MULTIPLE\_FACES}$; $q\gets0$
-\ElsIf{số khuôn mặt $=0$}
- \State $s\gets\text{NO\_FACE}$; $q\gets0$
-\Else
- \State Tính $r,a$ từ điểm mốc 1, 133, 362
- \If{$r>0{,}25$ hoặc $a>1{,}25$}
-  \State $q\gets q+1$
- \Else
-  \State $q\gets0$
- \EndIf
- \State $s\gets\text{TURNING\_HEAD}$ nếu $q\geq\lceil3600/\Delta t\rceil$, ngược lại NORMAL
-\EndIf
-\State \Return $(s,q)$
-\end{algorithmic}
+\caption{Chọn trạng thái giám sát từ một lượt phân tích}
+\begin{minipage}{0.94\linewidth}
+\small
+\textbf{Đầu vào:} khung hình, kết quả mặt/vật thể, bộ đếm $q$, chu kỳ $\Delta t$.\\
+\textbf{Đầu ra:} nhãn chính $s$, bộ đếm mới.
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item Lưu $q_{old}\gets q$ và đặt $q\gets0$.
+\item Nếu độ sáng $<15$: chọn CAMERA\_BLOCKED.
+\item Ngược lại, nếu có cell phone với score $>0{,}25$: chọn PHONE\_DETECTED.
+\item Ngược lại, nếu nhiều hơn một mặt: chọn MULTIPLE\_FACES; nếu không có mặt: chọn NO\_FACE.
+\item Với đúng một mặt, tính độ lệch $r$ và bất đối xứng $a$. Nếu $r>0{,}25$ hoặc $a>1{,}25$, đặt $q\gets q_{old}+1$.
+\item Riêng nhánh đúng một mặt: chọn TURNING\_HEAD khi $q\geq\lceil3600/\Delta t\rceil$; nếu chưa đủ, chọn NORMAL.
+\item Nếu nhãn khác NORMAL và đủ cooldown, gửi sự kiện cùng ảnh.
+\end{enumerate}
+\end{minipage}
 \end{algorithm}
 
-Thứ tự trên có ảnh hưởng thực tế: khi một điện thoại và hai khuôn mặt cùng xuất hiện, trạng thái điện thoại được chọn trước. Khi khung hình rất tối, các nhãn còn lại bị che bởi nhãn tối. Vì vậy, đây là phân loại một trạng thái ưu tiên tại mỗi lượt, không phải ghi nhận đồng thời mọi nhãn độc lập.
+Mỗi lượt chỉ chọn một nhãn theo ưu tiên. Khi điện thoại và nhiều khuôn mặt cùng xuất hiện, nhãn điện thoại được chọn trước. Số bản ghi còn phụ thuộc cooldown, vì vậy không đồng nhất số bản ghi với tổng số hành vi hoặc tổng thời gian vi phạm.
+\begin{figure}[H]\centering\input{diagrams/05-ai.tex}
+\caption{Luồng xử lý hình ảnh và gửi cảnh báo phía sinh viên.}\end{figure}
 
-Sau khi xác định trạng thái không bình thường, hàm ghi sự kiện kiểm tra khoảng nghỉ theo loại. Nhật ký giao diện được cập nhật trước khi yêu cầu mạng hoàn tất. Nếu POST thất bại, hiện có ghi lỗi vào console nhưng chưa có hàng đợi gửi lại bền vững. Số sự kiện tại máy sinh viên và số lưu ở backend có thể lệch khi mạng không ổn định; báo cáo không gọi cơ chế này là bảo đảm giao nhận.
+Sự kiện trình duyệt đi qua callback riêng. TAB\_SWITCH, WINDOW\_BLUR và FULLSCREEN\_EXIT được gửi khi bài thi hoạt động. Hook gộp các lần rời trang gần nhau trong 1,5 giây; bước gửi áp dụng cooldown theo nhãn. Các thao tác như phím bị chặn hoặc chuột phải có thể chỉ tạo thông báo cục bộ. JavaScript không cung cấp khóa hệ điều hành.
 
-Ảnh thu nhỏ được mã hóa base64 và gửi trong yêu cầu. Backend lưu tệp với tên có thành phần UUID, xử lý tên thư mục sinh viên để hạn chế đường dẫn không hợp lệ và lưu đường dẫn trong bản ghi. Việc chụp theo sự kiện làm ảnh trở thành minh chứng tại một thời điểm, không phải video liên tục để tái dựng toàn bộ bối cảnh.
+\section{Tiếp nhận sự kiện và bảo vệ lưu trữ}
+Backend kiểm tra phiên, loại vi phạm và thời điểm chụp lệch không quá 300 giây so với server. Tần suất được giới hạn 30 sự kiện mỗi phút và 600 sự kiện mỗi lượt ghi danh. Ảnh được giới hạn 300 KB sau giải mã, kiểm tra dấu hiệu JPEG; tổng dung lượng ảnh mặc định 2 GiB, có thể cấu hình bằng biến môi trường.
 
-\section{Thời gian, ảnh và tác vụ nền}
-Thời điểm có múi giờ được chuẩn hóa về UTC tại backend. Khi tuần tự hóa, dữ liệu thời gian được trả với thông tin múi giờ để trình duyệt hiển thị theo địa phương đúng cách. Ví dụ, 14:00 ở múi giờ UTC+7 tương ứng 07:00 UTC cùng ngày. Ca A09 kiểm tra chính trường hợp này nhằm xác nhận lỗi lệch giờ không tái xuất hiện trong luồng được thử.
+Tên thư mục sinh viên được chuẩn hóa, tên ảnh có thành phần ngẫu nhiên. Bản ghi lưu đường dẫn ảnh, exam\_id và enrollment\_id; không lưu toàn bộ ảnh nhị phân vào SQLite. Tuyến đọc ảnh yêu cầu phiên giảng viên, không công khai thư mục snapshots.
 
-Tác vụ dọn ảnh chạy mỗi giờ và chọn các bản ghi có thời điểm chụp cũ hơn 24 giờ. Khi xóa ảnh, đường dẫn ảnh được đặt rỗng còn bản ghi sự kiện được giữ lại. Nếu tác vụ chạy đều, một ảnh có thể tồn tại tới lần quét kế tiếp sau khi vượt ngưỡng, tức gần 25 giờ tùy thời điểm; nếu dịch vụ dừng thì có thể lâu hơn. Vì vậy, không nên viết ``ảnh chắc chắn bị xóa đúng sau 24 giờ''.
+Nhật ký cục bộ có thể tăng trước khi POST hoàn tất. Code chưa có hàng đợi gửi lại bền vững khi mất mạng, nên số cảnh báo phía sinh viên có thể khác số sự kiện lưu trên server. Các kiểm tra kích thước và kiểu tệp không thay thế đánh giá chất lượng bằng chứng.
 
-Điều kiện dọn dựa trên \src{captured_at}, vốn đến từ phía gửi. Nếu thời gian máy khách sai, tuổi ảnh suy ra cũng có thể sai. Hướng cải tiến là dùng thời điểm máy chủ tiếp nhận để kiểm soát lưu trữ và giữ thời điểm máy khách như một trường quan sát riêng, kèm khả năng phát hiện độ lệch.
+\section{CSDL, sao lưu và phục hồi}
+Đường dẫn DB được xác định theo thư mục backend, không theo thư mục làm việc của terminal. SQLite sử dụng WAL, synchronous=NORMAL, foreign\_keys=ON và busy\_timeout=5000; thời gian chờ kết nối là 5 giây \cite{sqlitewal}.
 
-\section{Giao diện sinh viên và giảng viên}
-\subsection{Luồng sinh viên}
-Trang truy cập phân vai trò, khu vực chuẩn bị hướng dẫn nhập mã và kiểm tra trước khi vào bài. Trong màn hình thi, phần câu hỏi và lựa chọn được kết hợp với khu vực camera, cảnh báo, trạng thái mô hình, thời gian và điều khiển nộp bài. Việc hiển thị trạng thái giúp sinh viên biết khi nào camera hoặc mô hình đang gặp vấn đề.
+Khởi tạo kiểm tra toàn vẹn, tạo các bảng thiếu và chạy migrate\_db. Đây là migration tùy chỉnh theo cấu trúc hiện có, chưa phải hệ thống migration tổng quát có lịch sử phiên bản như Alembic. Backend có cơ chế sao lưu trước cập nhật schema khi cần và sao lưu định kỳ bằng SQLite backup API. Job sao lưu chạy mỗi sáu giờ; cơ chế lưu giữ giữ tối đa bảy bản sao định kỳ theo mẫu tên.
 
-Các yêu cầu tinh chỉnh giao diện cần ưu tiên vùng đọc câu hỏi dài, kích thước chữ và việc cảnh báo không che camera. Với các khối giới thiệu, căn giữa tiêu đề có thể tăng tính cân đối; các danh sách bước và nội dung thao tác dài vẫn nên có căn lề nhất quán để dễ đọc. Đây là tiêu chí đánh giá và hướng điều chỉnh giao diện, không phải khẳng định rằng mọi yêu cầu bố cục trao đổi trước đó đã được sửa trong commit đang khảo sát.
+Ảnh được quét mỗi giờ và xóa khi captured\_at cũ hơn 24 giờ; đường dẫn được đặt rỗng, metadata còn lại. Thời hạn thực tế phụ thuộc lúc quét và thời gian dịch vụ hoạt động. captured\_at vẫn do client cung cấp nhưng đã được giới hạn độ lệch khi tiếp nhận.
 
-\subsection{Luồng giảng viên}
-Màn hình tổng quan hiển thị số sự kiện, số ảnh, số sinh viên có sự kiện và số loại. Dữ liệu được lấy lại theo chu kỳ 10 giây, không sử dụng WebSocket. Danh sách ở frontend yêu cầu tối đa 500 bản ghi trong luồng hiện tại; backend hỗ trợ tham số giới hạn và offset. Thống kê tổng có thể bao phủ tập dữ liệu rộng hơn danh sách đang hiển thị, nên giao diện cần giúp người dùng hiểu phạm vi.
+recover\_db.py đọc nguồn và tạo DB phục hồi mới. Quá trình phục hồi không bảo đảm mọi dữ liệu trong trang hỏng đều còn nguyên. Các thao tác đổi tên/thay DB cần thực hiện khi backend đã dừng. Ngoài ra, handler DatabaseError trả 503 với thông báo thống nhất và rollback session khi có thể.
 
-Màn hình quản lý đề hỗ trợ nhập tệp, đọc lỗi, xem trước, công bố và tra cứu kết quả. Ảnh minh chứng được lấy bằng yêu cầu xác thực rồi chuyển sang URL đối tượng để hiển thị. Việc thu hồi URL đối tượng và giải phóng tài nguyên khi đóng màn hình là phần cần duy trì khi chỉnh sửa giao diện.
+\section{Giao diện và triển khai đa thiết bị}
+Không gian giảng viên gồm quản lý đề, yêu cầu vào thi và giám sát. Dashboard tải lại dữ liệu theo chu kỳ 10 giây; danh sách vi phạm hiện yêu cầu tối đa 500 dòng dù backend có limit/offset. Vì vậy thống kê tổng có thể lớn hơn số dòng đang hiển thị.
 
-\section{Giới hạn của khóa trình duyệt}
-Hook \src{useBrowserLockdown} nghe các sự kiện thay đổi hiển thị, mất tiêu điểm và thoát toàn màn hình; đồng thời chặn một số phím, menu chuột phải và thao tác clipboard. Các listener được gắn theo vòng đời thành phần màn hình thi, chưa phải một cơ chế bảo vệ cấp hệ điều hành.
+Web di động dùng video playsInline, gọi play() rõ ràng, giữ tỷ lệ ảnh và giảm chu kỳ AI xuống 500 ms. Khi chuyển ứng dụng, camera có thể ngừng cung cấp khung hình; hệ thống không tuyên bố quan sát liên tục trong nền. Khi có frontend/dist, FastAPI phục vụ giao diện cùng API và trả SPA fallback cho đường dẫn phù hợp.
 
-Các nhãn TAB\_SWITCH, WINDOW\_BLUR và FULLSCREEN\_EXIT được chuyển qua callback tới hàm gửi sự kiện khi bài thi đang hoạt động. Hook dùng cửa sổ 1,5 giây để giảm đếm trùng blur và visibilitychange; hàm gửi tiếp tục áp dụng cooldown 5 giây theo nhãn. Không phải mọi sự kiện bị chặn, chẳng hạn BLOCKED\_KEY, đều được gửi lên server. JavaScript không khóa được toàn bộ hoạt động ở mức hệ điều hành.
 
-Vòng đời giám sát cần gắn chặt với trạng thái bài thi. Một số hiệu ứng hiện phụ thuộc trạng thái đã bắt đầu, trong khi màn hình kết quả vẫn nằm trong cùng thành phần sau nộp. Điều này đặt ra rủi ro tài nguyên camera hoặc timer còn hoạt động đến khi rời trang. Đây là nhận xét từ phân tích tĩnh, cần kiểm thử tương tác để xác nhận đường đi cụ thể và bổ sung điều kiện kết thúc thích hợp.
-
-\section{Triển khai đa thiết bị qua Cloudflare Tunnel}
-\subsection{Phục vụ chung frontend và backend}
-Sau khi chạy \src{npm run build}, thư mục \src{frontend/dist} chứa bản giao diện tĩnh. Khi backend khởi động và thư mục này tồn tại, tuyến cuối trong \src{main.py} phục vụ tài nguyên và trả \src{index.html} cho đường dẫn SPA. Tuyến không hợp lệ bắt đầu bằng \src{/api} được trả lỗi thay vì HTML. Đường dẫn tệp được chuẩn hóa và kiểm tra nằm trong dist để hạn chế path traversal.
-
-Cấu hình \src{API_BASE_URL} mặc định là \src{/api}. Vì trang web và API dùng cùng địa chỉ HTTPS, người dùng chỉ cần một đường dẫn tunnel. Nếu giao diện nằm trong APK và dùng origin nội bộ riêng, cần API base tuyệt đối trỏ tới backend truy cập được; repo có biến \src{VITE_API_BASE_URL} phục vụ trường hợp này. Địa chỉ phải được xác định ở thời điểm build nếu dùng biến môi trường Vite. Khi quick tunnel đổi URL, bản đóng gói hard-code URL cũ cần được cấu hình/build lại tương ứng.
-
-\subsection{Android APK và iOS Safari/PWA}
-Android có hai cách tiếp cận: mở web/PWA bằng Chrome hoặc cài APK đã đóng gói. Tác giả xác nhận APK đã chạy và đồng bộ với backend, web giảng viên. Tuy nhiên commit công khai chưa có Capacitor config, thư mục Android hay script build APK; do đó báo cáo không đưa ra lệnh build native như thể đã được kiểm chứng từ repo này.
-
-Trên iPhone/iPad, sinh viên mở link HTTPS trong Safari và có thể chọn Chia sẻ, Thêm vào Màn hình chính. Đây là kênh Safari/PWA, không yêu cầu phát hành IPA. Manifest và biểu tượng có trong repo; không có service worker để hỗ trợ thi offline. Dữ liệu bài làm và sự kiện của các kênh đều đi tới cùng backend nên giảng viên theo dõi từ web.
-
-\subsection{Camera và tối ưu giao diện di động}
-Video phân tích có \src{playsInline}, được giữ trong trang với kích thước nhỏ thay vì \src{display:none}; mã gọi \src{play()} tường minh và giới hạn chờ khoảng 8 giây. Các điều chỉnh này hỗ trợ đường khởi tạo camera trên iOS. Face Landmarker thử GPU trước rồi chuyển CPU nếu cần; Object Detector có nhánh lỗi riêng. Chu kỳ phát hiện là 500 ms trên mobile, 300 ms trên PC.
-
-Giao diện có \src{viewport-fit=cover}, vùng an toàn màn hình, chiều cao động và cỡ ô nhập phù hợp thiết bị cảm ứng. Ảnh chụp giữ tỷ lệ video thực tế. Camera có thể tạm dừng khi chuyển ứng dụng hoặc khóa màn hình; hệ thống chỉ ghi nhận sự kiện trang khi môi trường cho phép, không tuyên bố tiếp tục quan sát hình ảnh ở nền. Trên iOS không ép toàn màn hình như một cơ chế khóa thiết bị. Phát hiện điện thoại trên camera trước chỉ liên quan thiết bị khác nhìn thấy trong khung hình.
-
-\section{Ghi nhận bắt đầu và đồng hồ làm bài}
-API \src{POST /api/exams/code/{exam_code}/start} kiểm tra đề, lịch mở đề, mã sinh viên và trạng thái đã nộp. Lần đầu ghi một hàng \src{exam_starts}; các lần sau đọc lại hàng này. Ràng buộc UNIQUE theo đề và mã sinh viên cùng xử lý IntegrityError hạn chế tạo hai mốc trong yêu cầu cạnh tranh.
-
-Với thời lượng $D$ và thời gian đã trôi qua $E$, máy chủ trả $R=\max(0,\lfloor D-E\rfloor)$ giây còn lại. Frontend đặt mốc kết thúc cục bộ từ $R$, rồi tính lại chênh lệch với \src{Date.now()} thay vì chỉ giảm biến đếm từng giây. Khi nộp, \src{started_at} được sao chép từ mốc bắt đầu nếu có.
-
-Cơ chế này cải thiện tính liên tục của đồng hồ nhưng có ba giới hạn: lựa chọn trả lời chưa được lưu nháp bền vững; lỗi gọi start có nhánh dùng đủ thời lượng; submit chưa bắt buộc tồn tại bản ghi start và chưa từ chối nộp trễ theo deadline. Vì vậy không gọi đây là hệ thống quản lý phiên thi đã hoàn thiện.
+Phần Flutter có camera, màn hình thi và các service HTTP. Tuy nhiên, hàm phân loại còn dựa trên chu kỳ thời gian thay vì mô hình AI; phần ước lượng độ sáng xử lý byte ảnh nén chưa đúng như pixel RGB. Service chưa hoàn chỉnh với header phiên thi đã duyệt. Do đó, phạm vi chức năng được đánh giá trong báo cáo tập trung vào backend và web, chưa xác nhận APK/IPA native hoàn chỉnh.
+\begin{figure}[H]\centering\input{diagrams/06-trien-khai.tex}
+\caption{Mô hình triển khai web qua HTTPS tunnel.}\end{figure}

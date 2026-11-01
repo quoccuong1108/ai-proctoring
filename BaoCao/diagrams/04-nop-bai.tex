@@ -1,0 +1,17 @@
+\begingroup\setlength{\parindent}{0pt}
+\begin{tikzpicture}[node distance=9mm and 22mm,
+ box/.style={draw=daunavy,fill=lightnavy,rounded corners,align=center,text width=4.5cm,minimum height=10mm,inner sep=5pt,font=\fontsize{11}{14}\linespread{1}\selectfont},
+ dec/.style={diamond,aspect=3,draw=daunavy,fill=lightnavy,align=center,text width=3cm,inner sep=2pt,font=\fontsize{11}{14}\linespread{1}\selectfont},
+ lab/.style={font=\fontsize{10}{12}\selectfont,inner sep=2pt}]
+
+\node[box] (p) {Kiểm tra phiên đã duyệt;\\kiểm tra đề PUBLISHED};
+\node[box,below=of p] (dup) {Kiểm tra bài nộp cũ;\\kiểm tra mốc bắt đầu};
+\node[box,below=of dup] (time) {So sánh giờ máy chủ\\với hạn nộp};
+\node[box,below=of time] (grade) {Đọc đáp án chuẩn;\\tính điểm bài thi};
+\node[box,below=of grade] (save) {Lưu bài và câu trả lời;\\commit, trả kết quả};
+\node[box,right=of time,text width=3.2cm] (err) {Từ chối yêu cầu:\\401 / 403 / 409};
+\foreach \x/\y in {p/dup,dup/time,time/grade,grade/save} \draw[ra] (\x)--(\y);
+\draw[ra] (p.east)--++(1,0)|-(err.north);
+\draw[ra] (dup.east)--++(1,0);
+\draw[ra] (time)--node[lab,below=4pt,align=center,text width=1.8cm]{Không\\hợp lệ}(err);
+\end{tikzpicture}\endgroup

@@ -1,0 +1,230 @@
+[
+  {
+    "code": "P01",
+    "title": "Đọc Excel hợp lệ",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "P02",
+    "title": "Loại câu trùng",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "P03",
+    "title": "Bỏ câu thiếu lựa chọn",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "P04",
+    "title": "Từ chối bộ vượt 200 câu",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "P05",
+    "title": "Đọc Word đúng mẫu",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "P06",
+    "title": "Từ chối định dạng TXT",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "A01",
+    "title": "Chặn API quản lý khi thiếu phiên",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "A02",
+    "title": "Từ chối mật khẩu sai",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "A03",
+    "title": "Đăng nhập và tra cứu phiên",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "E01",
+    "title": "Tạo đề nháp theo môn",
+    "passed": true,
+    "detail": "{\"exam\":{\"id\":1,\"exam_code\":\"FINAL\",\"title\":\"Đề thử\",\"subject\":\"AI\",\"teacher_id\":1,\"teacher_name\":\"Giảng viên thử\",\"join_open_minutes\":15,\"duration_minutes\":null,\"total_questions\":2,\"pass_score\":5.0,\"shuffle_questions\":false,\"status\":\"DRAFT\",\"start_time\":null,\"end_time\":null,\"created_by\":\"Giảng viên thử\",\"created_at\":\"2026-10-30T07:57:41.060237+00:00\",\"questions\":[{\"id\":1,\"order_index\":0,\"content\":\"Câu một\",\"option_a\":\"a\",\"option_b\":\"b\",\"option_c\":\"c\",\"option_d\":\"d\",\"score_weight\":5.0,\"correct_option\":\"A\"},{\"id\":2,\"order_index\":1,\"content\":\"Câu hai\",\"option_a\":\"a\",\"option_b\":\"b\",\"option_c\":\"c\",\"option_d\":\"d\",\"score_weight\":5.0,\"correct_option\":\"B\"}]},\"parse_errors\":[]}"
+  },
+  {
+    "code": "E02",
+    "title": "Chặn giảng viên khác xem đề",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "E03",
+    "title": "Bắt buộc lịch công bố",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "E04",
+    "title": "Công bố đề có lịch",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "S01",
+    "title": "Lấy đề cần phiên sinh viên",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "S02",
+    "title": "Yêu cầu mới chờ duyệt",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "S03",
+    "title": "Giảng viên duyệt yêu cầu",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "S04",
+    "title": "Token phiên chỉ trả một lần",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "S05",
+    "title": "Đề sinh viên không có đáp án chuẩn",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T01",
+    "title": "Từ chối nộp khi chưa bắt đầu",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T02",
+    "title": "Bắt đầu trả thời gian còn lại",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T03",
+    "title": "Gọi lại giữ mốc bắt đầu",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T04",
+    "title": "Giờ còn lại giảm theo mốc server",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "V01",
+    "title": "Nhận sự kiện không cần ảnh",
+    "passed": true,
+    "detail": "{\"id\":1,\"student_id\":\"SV-00000001\",\"student_name\":\"Sinh viên thử\",\"violation_type\":\"TAB_SWITCH\",\"captured_at\":\"2026-10-30T07:57:41.209610+00:00\",\"image_url\":null,\"created_at\":\"2026-10-30T07:57:41.215510+00:00\",\"exam_id\":1,\"enrollment_id\":1}"
+  },
+  {
+    "code": "V02",
+    "title": "Sự kiện gắn đúng đề và ghi danh",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "V03",
+    "title": "Từ chối danh tính chèn trong payload",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "V04",
+    "title": "Từ chối nhãn không hợp lệ",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "V05",
+    "title": "Từ chối thời điểm lệch quá 5 phút",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "V06",
+    "title": "Ảnh yêu cầu phiên giảng viên",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T05",
+    "title": "Từ chối nộp quá thời lượng và ân hạn",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T06",
+    "title": "Nhận bài trong ân hạn 15 giây",
+    "passed": true,
+    "detail": "{\"total_score\":5.0,\"correct_count\":1,\"total_questions\":2,\"pass_score\":5.0,\"passed\":true,\"status\":\"SUBMITTED\"}"
+  },
+  {
+    "code": "G01",
+    "title": "Chấm một trong hai câu đúng bằng 5 điểm",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "G02",
+    "title": "Chặn nộp bài trùng",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "G03",
+    "title": "Xuất workbook Excel đọc được",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "G04",
+    "title": "Không xóa đề đã có bài nộp",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "T07",
+    "title": "Giờ đóng đề giới hạn hạn nộp",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "S06",
+    "title": "Phiên bị thu hồi không lấy được đề",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "E05",
+    "title": "Đóng đề chuyển trạng thái CLOSED",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "code": "A04",
+    "title": "Đăng xuất vô hiệu hóa token",
+    "passed": true,
+    "detail": ""
+  }
+]

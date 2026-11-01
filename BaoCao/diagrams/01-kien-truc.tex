@@ -1,0 +1,14 @@
+\begin{tikzpicture}[node distance=1.1cm and 1cm]
+\node[rb] (sv) {Web sinh viên\\React + MediaPipe};
+\node[rb,right=of sv] (gv) {Web giảng viên\\Quản lý và tra cứu};
+\node[rb,below=of sv] (api) {FastAPI\\Xác thực và nghiệp vụ};
+\node[rb,below=of gv] (cron) {APScheduler\\Dọn ảnh / sao lưu};
+\node[rb,below=of api] (db) {SQLite\\Dữ liệu quan hệ};
+\node[rb,below=of cron] (img) {Ổ đĩa\\Ảnh và bản sao lưu};
+\draw[ra] (sv)--node[left,font=\scriptsize]{Phiên, bài làm, sự kiện}(api);
+\draw[ra] (gv)--(api);
+\draw[ra] (api)--(db);
+\draw[ra] (api)--(img);
+\draw[ra] (cron)--(img);
+\draw[ra] (cron)--(db);
+\end{tikzpicture}

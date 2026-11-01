@@ -1,0 +1,10 @@
+
+\begin{tikzpicture}[x=1cm,y=1cm,font=\small,ext/.style={draw=daunavy,align=center,text width=3cm,minimum height=1cm},lab/.style={font=\footnotesize,fill=white,align=center}]
+\node[rb,text width=5cm,minimum height=2cm] (s) at (0,0) {0. EduShield AI\\Thi trực tuyến và hỗ trợ giám sát};
+\node[ext] (gv) at (0,4.5) {Giảng viên};
+\node[ext] (sv) at (0,-4.5) {Sinh viên};
+\draw[ra] (gv.south west)--node[lab,left]{Thông tin đăng nhập; tệp đề;\\lịch thi; quyết định duyệt}(s.north west);
+\draw[ra] (s.north east)--node[lab,right]{Phiên giảng viên; yêu cầu;\\nhật ký; điểm; tệp Excel}(gv.south east);
+\draw[ra] (sv.north west)--node[lab,left]{Thông tin khai báo; yêu cầu;\\câu trả lời; sự kiện, ảnh}(s.south west);
+\draw[ra] (s.south east)--node[lab,right]{Đề khả dụng; trạng thái;\\phiên thi; câu hỏi; điểm}(sv.north east);
+\end{tikzpicture}

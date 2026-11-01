@@ -1,43 +1,46 @@
 \chapter{Mở đầu}
 \section{Bối cảnh và lý do chọn đề tài}
-Thi trực tuyến giúp tổ chức đánh giá mà không yêu cầu mọi thí sinh có mặt tại cùng một địa điểm. Tuy nhiên, quy trình này đòi hỏi giải quyết đồng thời nhiều vấn đề: phân phối đề đúng đối tượng, quản lý thời gian, ghi nhận câu trả lời, tính điểm và cung cấp thông tin để giảng viên xem xét các tình huống bất thường. Khi những công việc này nằm ở các công cụ riêng lẻ, việc tổng hợp kết quả và truy vết sự kiện trở nên khó khăn.
+Thi trực tuyến giúp tổ chức đánh giá linh hoạt về địa điểm, nhưng đặt ra yêu cầu phối hợp nhiều công việc: phân phối đề, kiểm soát quyền vào thi, quản lý thời gian, ghi nhận câu trả lời và tổng hợp kết quả. Khi các công việc này được thực hiện bằng những công cụ rời rạc, giảng viên khó đối chiếu bài làm với tình huống phát sinh trong quá trình thi.
 
-Camera trên thiết bị của sinh viên có thể cung cấp tín hiệu hỗ trợ như sự hiện diện của khuôn mặt, sự xuất hiện của nhiều người hoặc điện thoại trong khung hình. Dù vậy, các tín hiệu này không tự chứng minh hành vi gian lận. Một sinh viên quay đầu do tiếng động hoặc môi trường thiếu sáng có thể bị gắn cờ dù không vi phạm quy chế. Vì thế, vai trò phù hợp của AI trong đề tài là phát hiện tình huống cần xem xét, giảm khối lượng quan sát thủ công và cung cấp ảnh minh chứng cho giảng viên.
+Camera có thể cung cấp tín hiệu hỗ trợ như sự hiện diện của khuôn mặt, nhiều người trong khung hình hoặc điện thoại xuất hiện trước máy. Tuy nhiên, một tín hiệu bất thường không tự chứng minh gian lận. Sinh viên có thể quay đầu do tiếng động, còn ảnh tối có thể xuất phát từ điều kiện ánh sáng. Vì vậy, đề tài lựa chọn cách tiếp cận hỗ trợ giám sát: phát hiện, lưu bằng chứng và để giảng viên xem xét.
 
-EduShield AI được phát triển theo hướng tích hợp chức năng thi trắc nghiệm và giám sát hỗ trợ trong một ứng dụng web hỗ trợ PC và thiết bị di động. Đề tài lựa chọn suy luận ngay trong trình duyệt để tận dụng thiết bị của thí sinh và hạn chế việc phải truyền video liên tục về máy chủ. Máy chủ tập trung vào dữ liệu nghiệp vụ, ảnh sự kiện, chấm điểm và cung cấp API quản lý.
+EduShield AI tích hợp quy trình thi trắc nghiệm và giám sát trong một ứng dụng web. Suy luận hình ảnh được thực hiện ngay trên thiết bị sinh viên, giúp hạn chế truyền video liên tục về máy chủ. Backend tập trung vào tài khoản, phiên thi, dữ liệu đề, chấm điểm và lưu trữ sự kiện.
 
 \section{Phát biểu bài toán}
-Đầu vào của hệ thống gồm bộ câu hỏi trắc nghiệm được soạn theo mẫu, cấu hình đề thi, thông tin sinh viên, các lựa chọn trả lời và khung hình từ camera. Đầu ra gồm đề thi được công bố, điểm số, lịch sử nộp bài, sự kiện nghi vấn và ảnh minh chứng khi có thể chụp được.
+Đầu vào gồm tệp câu hỏi theo mẫu, cấu hình lịch thi, tài khoản giảng viên, thông tin sinh viên, lựa chọn trả lời, khung hình camera và sự kiện của trình duyệt. Đầu ra gồm đề thi được công bố, trạng thái ghi danh, phiên thi được duyệt, kết quả chấm điểm và lịch sử cảnh báo kèm ảnh khi có thể chụp được.
 
-Bài toán được chia thành hai luồng liên quan. Luồng đánh giá học tập phải giữ đáp án đúng ở máy chủ, chấm điểm nhất quán và hạn chế nộp lặp. Luồng giám sát phải chuyển dữ liệu hình ảnh thành các nhãn sự kiện dễ hiểu, giới hạn tần suất ghi nhận, quản lý thời gian và cho phép giảng viên tra cứu. Hai luồng hiện được đối chiếu chủ yếu qua mã sinh viên; đây là một giới hạn thiết kế được phân tích ở các chương sau.
+Bài toán có hai luồng gắn với cùng một đề thi. Luồng nghiệp vụ phải xác định quyền truy cập, duy trì mốc bắt đầu, kiểm tra hạn nộp và chấm theo đáp án máy chủ. Luồng giám sát chuyển tín hiệu hình ảnh và thao tác trang thành sự kiện, đồng thời lưu đúng đề và lượt ghi danh để giảng viên tra cứu.
 
-\section{Mục tiêu của đề tài}
+\section{Mục tiêu}
 \subsection{Mục tiêu tổng quát}
-Xây dựng nguyên mẫu hệ thống thi trực tuyến có khả năng quản lý đề trắc nghiệm, chấm điểm trên máy chủ và hỗ trợ giám sát bằng thị giác máy tính, với giao diện riêng cho sinh viên và giảng viên.
+Xây dựng hệ thống thi trắc nghiệm trực tuyến có quản lý phiên được phê duyệt, chấm điểm tự động và hỗ trợ giám sát bằng các mô hình thị giác máy tính có sẵn.
 
 \subsection{Mục tiêu cụ thể}
 \begin{enumerate}
-\item Tổ chức quy trình tạo đề từ tệp, xem trước, công bố và cung cấp mã đề cho sinh viên.
-\item Cung cấp giao diện làm bài, bộ đếm thời gian và thao tác nộp bài, đồng thời trả kết quả chấm điểm tự động.
-\item Tích hợp mô hình có sẵn để phát hiện khuôn mặt và điện thoại; xây dựng các quy tắc cho trường hợp không có mặt, nhiều mặt, quay đầu kéo dài và khung hình tối.
-\item Ghi nhận sự kiện với thời điểm, mã sinh viên và ảnh thu nhỏ; cung cấp màn hình tổng quan và tra cứu cho giảng viên.
-\item Mở rộng thi trên Android và iOS qua HTTPS, dùng chung dữ liệu với web giảng viên; phân biệt kênh APK Android với Safari/PWA trên iPhone.
-\item Kiểm tra các hành vi chức năng quan trọng và xác định những giới hạn trước khi triển khai rộng hơn.
+\item Cung cấp tài khoản giảng viên và quản lý đề theo người sở hữu.
+\item Nhập câu hỏi từ XLSX hoặc DOCX, phân môn, cấu hình lịch và công bố hoặc đóng đề.
+\item Tổ chức quy trình sinh viên xin vào thi, giảng viên phê duyệt, từ chối hoặc thu hồi phiên.
+\item Lưu thời điểm bắt đầu trên máy chủ, kiểm tra thời hạn nộp, chấm bài và ngăn bản nộp trùng.
+\item Tích hợp phát hiện khuôn mặt, điện thoại, quay đầu, khung hình tối và một số sự kiện trình duyệt.
+\item Lưu cảnh báo gắn với đề và lượt ghi danh; hỗ trợ xem ảnh và xuất bảng điểm.
+\item Hỗ trợ truy cập web trên máy tính, điện thoại và tổ chức bảo trì dữ liệu bằng dọn ảnh, sao lưu, phục hồi.
 \end{enumerate}
 
 \section{Đối tượng và phạm vi}
-Đối tượng sử dụng chính là sinh viên làm bài trắc nghiệm và giảng viên quản lý đề, theo dõi sự kiện, xem kết quả. Máy khách cần trình duyệt hỗ trợ camera và các thành phần MediaPipe. Hệ thống hiện không tích hợp cơ sở dữ liệu đào tạo để xác thực mã sinh viên, không đối chiếu khuôn mặt với giấy tờ hoặc hồ sơ và không triển khai cơ chế đăng nhập tài khoản cá nhân đầy đủ.
+Hai tác nhân nghiệp vụ là giảng viên và sinh viên. Giảng viên đăng nhập bằng mã tài khoản và mật khẩu. Sinh viên khai báo mã, họ tên và chỉ nhận phiên thi sau khi được duyệt. Phê duyệt phiên là kiểm soát quyền tham gia, chưa phải xác minh danh tính bằng sinh trắc học hoặc đối chiếu với hệ thống đào tạo.
 
-Phạm vi nội dung thi là câu hỏi một đáp án đúng trong bốn phương án A, B, C, D. Bộ phân tích tệp đọc nội dung văn bản theo khuôn dạng quy định; không được mô tả như một công cụ hiểu mọi bố cục Word, nhận dạng chữ trong ảnh hoặc chuyển đổi tự do đề thi có công thức phức tạp. Phạm vi giám sát là dữ liệu nhìn thấy trong khung hình và một số sự kiện của trình duyệt, không bao gồm toàn bộ hoạt động trên thiết bị.
+Nội dung thi là câu hỏi một đáp án đúng trong bốn phương án A, B, C, D. Bộ nhập đề xử lý văn bản theo mẫu; không thực hiện OCR hoặc hiểu mọi bố cục Word. Phạm vi giám sát giới hạn ở vùng camera nhìn thấy và các sự kiện trình duyệt có thể quan sát, không bao phủ mọi hoạt động trên hệ điều hành.
 
-Báo cáo khảo sát mã nguồn công khai tại commit đã chốt \cite{repo}. Không sử dụng dữ liệu điểm thực tế hay ảnh khuôn mặt của sinh viên làm dữ liệu đánh giá. Những ảnh giao diện đã trao đổi trước đó chỉ thể hiện yêu cầu thiết kế; chúng không được dùng để khẳng định hành vi của phiên bản mã nguồn đang khảo sát.
+Phần triển khai chính là web React và API FastAPI. Web di động dùng cùng mã frontend với điều chỉnh chu kỳ suy luận và bố cục. Thư mục Flutter trong dự án được xem là phần mở rộng đang phát triển; không dùng sự tồn tại của mã nguồn này để kết luận ứng dụng native đã hoàn thiện.
 
-\section{Phương pháp thực hiện và kiểm chứng}
-Phương pháp phân tích bắt đầu từ việc truy vết luồng dữ liệu giữa các thành phần giao diện, các tuyến API, mô hình dữ liệu và tác vụ nền. Những hằng số hoặc điều kiện quan trọng được đối chiếu trực tiếp với mã: chu kỳ suy luận, ngưỡng cảnh báo, giới hạn tệp, quy tắc chấm điểm và chính sách dọn ảnh.
+\section{Phương pháp thực hiện}
+Phương pháp phân tích gồm truy vết luồng giữa giao diện, API, lớp xác thực, mô hình dữ liệu và tác vụ nền. Các điều kiện quan trọng như thời hạn nộp, quyền sở hữu đề, phiên ghi danh, giới hạn sự kiện và ngưỡng AI được đối chiếu trực tiếp với mã nguồn final \cite{repo}.
 
-Phương pháp thực nghiệm sử dụng bộ dữ liệu tổng hợp nhỏ để kiểm thử bộ nhập đề và API bằng FastAPI TestClient. Cơ sở dữ liệu được tạo trong thư mục tạm để tránh ảnh hưởng dữ liệu dự án. Kết quả kiểm thử được lưu dưới dạng JSON và nhật ký, đi kèm mã tái lập trong bộ nguồn báo cáo. Phương pháp này phù hợp xác nhận logic nghiệp vụ, nhưng chưa đo hiệu năng trình duyệt hoặc độ chính xác của mô hình trên camera.
+Kiểm chứng chức năng sử dụng dữ liệu tổng hợp trên bản sao backend tách biệt. Các phép thử tập trung vào luồng xác thực, đề thi, ghi danh, thời gian, chấm điểm và sự kiện. Phân tích tĩnh được sử dụng cho các phần giao diện và tích hợp camera chưa được thử trên thiết bị thật. Hai mức bằng chứng được phân biệt trong chương đánh giá.
 
-\section{Đóng góp và bố cục báo cáo}
-Đóng góp của dự án nằm ở việc tích hợp mô hình thị giác có sẵn với quy trình thi, xây dựng các quy tắc biến đầu ra mô hình thành sự kiện, thiết kế API và lưu trữ phục vụ giám sát, cùng với giao diện thao tác cho hai vai trò. Dự án không công bố một kiến trúc mạng nơ-ron mới hoặc một mô hình do nhóm tự huấn luyện.
+\section{Đóng góp và bố cục}
+Đóng góp của đề tài là tích hợp mô hình thị giác có sẵn vào quy trình thi, xây dựng quy tắc tạo cảnh báo, thiết kế phiên được phê duyệt và liên kết dữ liệu phục vụ giám sát. Dự án không huấn luyện lại mô hình hoặc đề xuất kiến trúc mạng nơ-ron mới.
 
-Báo cáo gồm sáu chương. Chương 1 xác định bài toán và phạm vi. Chương 2 trình bày cơ sở kỹ thuật. Chương 3 phân tích yêu cầu, kiến trúc và dữ liệu. Chương 4 mô tả cài đặt từ mã nguồn. Chương 5 báo cáo kết quả kiểm thử, hạn chế và kế hoạch thực nghiệm. Chương 6 tổng kết và đề xuất lộ trình phát triển. Phụ lục cung cấp danh mục API, hướng dẫn vận hành, định dạng đề và chỉ dẫn tái lập.
+Báo cáo gồm sáu chương: mở đầu; cơ sở lý thuyết; phân tích và thiết kế; cài đặt; kiểm thử và đánh giá; kết luận và hướng phát triển.
+
+\noindent Mã nguồn GitHub: \url{https://github.com/quoccuong1108/ai-proctoring.git}.

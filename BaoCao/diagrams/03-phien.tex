@@ -1,0 +1,13 @@
+\begin{tikzpicture}[node distance=1cm and 1cm]
+\node[rb] (join) {Sinh viên chọn đề\\Gửi yêu cầu};
+\node[rb,below=of join] (wait) {PENDING\\Chờ giảng viên duyệt};
+\node[rb,below left=of wait] (no) {REJECTED\\Thông báo lý do};
+\node[rb,below right=of wait] (yes) {APPROVED\\Cấp token một lần};
+\node[rb,below=of yes] (take) {Lấy đề / bắt đầu\\Làm và nộp bài};
+\node[rb,below=of no] (rev) {REVOKED\\Chặn phiên thi};
+\draw[ra] (join)--(wait);
+\draw[ra] (wait)--node[left,font=\scriptsize]{Từ chối}(no);
+\draw[ra] (wait)--node[right,font=\scriptsize]{Phê duyệt}(yes);
+\draw[ra] (yes)--(take);
+\draw[ra] (yes.west)--node[above,font=\scriptsize]{Thu hồi}(rev.north east);
+\end{tikzpicture}

@@ -1,0 +1,22 @@
+\begingroup\setlength{\parindent}{0pt}
+\begin{tikzpicture}[node distance=9mm and 22mm,
+ box/.style={draw=daunavy,fill=lightnavy,rounded corners,align=center,text width=4.5cm,minimum height=10mm,inner sep=5pt,font=\fontsize{11}{14}\linespread{1}\selectfont},
+ dec/.style={diamond,aspect=3,draw=daunavy,fill=lightnavy,align=center,text width=3cm,inner sep=2pt,font=\fontsize{11}{14}\linespread{1}\selectfont},
+ lab/.style={font=\fontsize{10}{12}\selectfont,inner sep=2pt}]
+
+\node[box] (a) {Gửi yêu cầu bắt đầu thi};
+\node[dec,below=of a] (b) {Bắt đầu thành công?};
+\node[box,below=of b] (c) {Làm bài, đếm giờ;\\giám sát và ghi sự kiện};
+\node[box,below=of c] (d) {Nộp chủ động hoặc hết giờ};
+\node[dec,below=of d] (e) {Nộp hợp lệ?};
+\node[box,below=of e] (f) {Hiển thị kết quả};
+\node[circle,draw=daunavy,double,fill=daunavy,minimum size=3mm,below=of f] (z) {};
+\node[box,right=of b,text width=3.2cm] (r) {Hiển thị lỗi,\\cho phép thử lại};
+\node[box,right=of e,text width=3.2cm] (s) {Hiển thị lỗi nộp;\\không báo thành công};
+\foreach \x/\y in {a/b,c/d,d/e,f/z} \draw[ra] (\x)--(\y);
+\draw[ra] (b)--node[lab,right]{Có}(c);
+\draw[ra] (b)--node[lab,above]{Không}(r);
+\draw[ra] (r.north)|-node[lab,above,pos=.75]{Thử lại}(a.east);
+\draw[ra] (e)--node[lab,right]{Có}(f);
+\draw[ra] (e)--node[lab,above]{Không}(s);
+\end{tikzpicture}\endgroup

@@ -25,20 +25,12 @@
 
 % Thân bài cỡ 13pt: lớp tài liệu đặt 12pt rồi phóng phông lên 1,08 lần,
 % vì lớp book không có tuỳ chọn 13pt.
-\IfFontExistsTF{Noto Sans}{%
-  \setmainfont{Noto Sans}[Scale=1.08, Ligatures=TeX,
-                          BoldFont={Noto Sans Bold}, ItalicFont={Noto Sans Italic}]
-  \setsansfont{Noto Sans}[Scale=1.08, Ligatures=TeX, BoldFont={Noto Sans Bold}]
-}{%
-  \setmainfont{Latin Modern Roman}[Scale=1.08, Ligatures=TeX]
-  \setsansfont{Latin Modern Sans}[Scale=1.08, Ligatures=TeX]
-  \PackageWarning{dau}{Khong tim thay phong Noto Sans, dung phong mac dinh}%
-}
-\IfFontExistsTF{Noto Sans Mono}{%
-  \setmonofont{Noto Sans Mono}[Scale=0.92]
-}{%
-  \setmonofont{Latin Modern Mono}[Scale=0.98]
-}
+\setmainfont{NotoSans-Regular.ttf}[Path=fonts/,Scale=1.08,Ligatures=TeX,
+ BoldFont=NotoSans-Bold.ttf,ItalicFont=NotoSans-Italic.ttf,
+ BoldItalicFont=NotoSans-BoldItalic.ttf]
+\setsansfont{NotoSans-Regular.ttf}[Path=fonts/,Scale=1.08,Ligatures=TeX,
+ BoldFont=NotoSans-Bold.ttf,ItalicFont=NotoSans-Italic.ttf]
+\setmonofont{DejaVuSansMono.ttf}[Path=fonts/,Scale=0.82]
 
 % ---------- Toán & ký tự unicode ------------------------------------
 % Dùng unicode-math thay cho amssymb: phông toán Computer Modern chỉ có
@@ -109,12 +101,9 @@
 \renewcommand{\arraystretch}{1.25}
 
 % ---------- Giải thuật, đặt tên tiếng Việt --------------------------
-\RequirePackage{algorithm}
-\RequirePackage{algpseudocode}
-\makeatletter
-\renewcommand{\ALG@name}{Giải thuật}
-\renewcommand{\listalgorithmname}{Danh mục giải thuật}
-\def\algbackskip{\hskip-\ALG@thistlm}
+\newfloat{algorithm}{htbp}{loa}[chapter]
+\floatname{algorithm}{Giải thuật}
+\newcommand{\listofalgorithms}{\listof{algorithm}{Danh mục giải thuật}}
 
 % ---------- Caption -------------------------------------------------
 \RequirePackage{caption}
@@ -253,7 +242,7 @@
   \renewcommand{\headrule}{\hbox to\headwidth{\color{daugold}\leaders\hrule height \headrulewidth\hfill}}%
   \fancyhead[L]{\footnotesize\color{gray500}\nouppercase{\leftmark}}%
   \fancyhead[R]{\footnotesize\color{gray500}\@rname}%
-  \fancyfoot[L]{\footnotesize\color{gray500}\@stuname{} \textperiodcentered{} \@smssv}%
+  \fancyfoot[L]{\footnotesize\color{gray500}Hồ Quốc Cường -- Lê Công Gia Bình}%
   \fancyfoot[R]{\footnotesize\color{gray500}\thepage}%
   \renewcommand{\chaptermark}[1]{\markboth{Chương \thechapter.\ ##1}{}}%
 }
@@ -353,7 +342,8 @@
 {\fontsize{13}{20}\selectfont\setlength{\parskip}{0pt}\setlength{\parindent}{0pt}
 \begin{flushleft}
 \hspace{0.6cm}\begin{tabular}{@{}>{\bfseries\color{daunavy}}l @{\hspace{0.3cm}}c@{\hspace{0.3cm}}>{\raggedright\arraybackslash\bfseries}p{7.6cm}@{}}
-  Sinh viên thực hiện & : & \@stuname{} (\@smssv)\\[4pt]
+  Sinh viên thực hiện & : & Hồ Quốc Cường -- 2351220038\\[9pt]
+  & & Lê Công Gia Bình -- 2151220053\\[4pt]
   Lớp & : & \@slopsv\\[4pt]
   Ngành & : & \@sCouncil\\[4pt]
   Giảng viên hướng dẫn & : & \@sSupervise\\[4pt]
@@ -395,7 +385,7 @@
     {\renewcommand{\arraystretch}{1.6}%
      \begin{tabular}{@{}>{\raggedright\arraybackslash\bfseries\color{daumaroon}}p{5.3cm} >{\raggedright\arraybackslash\color{daunavy}}p{8.6cm}@{}}
         Loại báo cáo: & \@rname\\
-        Sinh viên thực hiện: & \@stuname{} (\@smssv)\\
+        Sinh viên thực hiện: & \shortstack[l]{Hồ Quốc Cường -- 2351220038\\[9pt]Lê Công Gia Bình -- 2151220053}\\
         Ngành: & \@sCouncil\\
         Giảng viên hướng dẫn: & \@sSupervise\\
      \end{tabular}};

@@ -1,0 +1,17 @@
+\begingroup\setlength{\parindent}{0pt}
+\begin{tikzpicture}[node distance=9mm and 22mm,
+ box/.style={draw=daunavy,fill=lightnavy,rounded corners,align=center,text width=4.5cm,minimum height=10mm,inner sep=5pt,font=\fontsize{11}{14}\linespread{1}\selectfont},
+ dec/.style={diamond,aspect=3,draw=daunavy,fill=lightnavy,align=center,text width=3cm,inner sep=2pt,font=\fontsize{11}{14}\linespread{1}\selectfont},
+ lab/.style={font=\fontsize{10}{12}\selectfont,inner sep=2pt}]
+
+\node[circle,fill=daunavy,minimum size=4mm] (a) {};
+\node[box,below=of a] (b) {Khai báo thông tin,\\gửi yêu cầu vào thi};
+\node[box,below=of b] (c) {Chờ quyết định giảng viên};
+\node[dec,below=of c] (d) {Được duyệt?};
+\node[box,below=of d] (e) {Nhận phiên thi, lấy đề};
+\node[box,below=of e] (f) {Chuyển sang bước bắt đầu thi};
+\node[box,right=of d,text width=3.2cm] (r) {Thông báo từ chối\\hoặc thu hồi};
+\foreach \x/\y in {a/b,b/c,c/d,e/f} \draw[ra] (\x)--(\y);
+\draw[ra] (d)--node[lab,right]{Có}(e);
+\draw[ra] (d)--node[lab,above]{Không}(r);
+\end{tikzpicture}\endgroup

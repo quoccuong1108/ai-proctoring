@@ -1,0 +1,12 @@
+
+\begin{tikzpicture}[x=1cm,y=1cm, every node/.style={font=\fontsize{10}{12}\selectfont}]
+\node[rb,font=\fontsize{10}{12}\selectfont] (cam) at (0,0) {Khung hình camera\\300 / 500 ms};
+\node[rb,font=\fontsize{10}{12}\selectfont] (face) at (-2.8,-2.4) {Face Landmarker\\Số mặt / landmarks};
+\node[rb,font=\fontsize{10}{12}\selectfont] (obj) at (2.8,-2.4) {EfficientDet + Canvas\\Điện thoại / độ sáng};
+\node[rb,text width=9cm,font=\fontsize{10}{12}\selectfont] (rule) at (0,-4.8) {Ưu tiên: tối → điện thoại → nhiều mặt\\→ không mặt → quay đầu → bình thường};
+\node[rb,font=\fontsize{10}{12}\selectfont] (normal) at (-2.8,-7.2) {NORMAL\\Tiếp tục quan sát};
+\node[rb,font=\fontsize{10}{12}\selectfont] (bad) at (2.8,-7.2) {Bất thường\\Kiểm tra cooldown 5 s};
+\node[rb,font=\fontsize{10}{12}\selectfont] (send) at (2.8,-9.6) {Ảnh + metadata\\POST với phiên thi};
+\draw[ra] (cam)--(face);\draw[ra] (cam)--(obj);\draw[ra] (face)--(rule);\draw[ra] (obj)--(rule);
+\draw[ra] (rule)--(normal);\draw[ra] (rule)--(bad);\draw[ra] (bad)--(send);
+\end{tikzpicture}

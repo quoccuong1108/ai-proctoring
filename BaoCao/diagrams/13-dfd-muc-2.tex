@@ -1,0 +1,18 @@
+\begingroup\setlength{\parindent}{0pt}
+\begin{tikzpicture}[x=1cm,y=1cm,font=\fontsize{10.5}{13}\linespread{1}\selectfont,ext/.style={draw=daunavy,align=center,text width=2.6cm,minimum height=1.5cm,inner sep=3pt},proc/.style={ext,rounded corners,fill=lightnavy},data/.style={align=center,text width=2.6cm,minimum height=1.8cm,inner sep=3pt},lab/.style={font=\fontsize{10.5}{13}\linespread{1}\selectfont,text width=2.7cm,align=center,inner sep=1pt}]
+\node[ext] (a0) at (0,0.0) {Sinh viên};
+\node[proc] (p0) at (6,0.0) {3.1 Xác thực\\phiên thi};
+\node[data] (d0) at (12,0.0) {D3 Ghi danh};
+\draw[daunavy] (10.6,1.25)--(13.4,1.25);\draw[daunavy] (10.6,-1.25)--(13.4,-1.25);
+\draw[ra] ([yshift=0.4cm]a0.east)--node[lab,above=4pt]{Token phiên}([yshift=0.4cm]p0.west);
+\draw[ra] ([yshift=-0.4cm]p0.west)--node[lab,below=4pt]{Lỗi phiên\\(nếu có)}([yshift=-0.4cm]a0.east);
+\draw[ra] ([yshift=0.4cm]d0.west)--node[lab,above=4pt]{Trạng thái;\\token băm}([yshift=0.4cm]p0.east);
+\node[ext] (a1) at (0,-6.8) {Sinh viên};
+\node[proc] (p1) at (6,-6.8) {3.2 Cấp câu hỏi;\\đồng bộ giờ};
+\node[data] (d1) at (12,-6.8) {D2 Đề, câu hỏi\\D4 Bài thi};
+\draw[daunavy] (10.6,-5.55)--(13.4,-5.55);\draw[daunavy] (10.6,-8.05)--(13.4,-8.05);
+\draw[ra] ([yshift=0.4cm]a1.east)--node[lab,above=4pt]{Lấy đề /\\bắt đầu; phiên}([yshift=0.4cm]p1.west);
+\draw[ra] ([yshift=-0.4cm]p1.west)--node[lab,below=4pt]{Câu hỏi;\\giờ còn lại}([yshift=-0.4cm]a1.east);
+\draw[ra] ([yshift=0.4cm]d1.west)--node[lab,above=4pt]{Câu hỏi, lịch;\\mốc bắt đầu}([yshift=0.4cm]p1.east);
+\draw[ra] ([yshift=-0.4cm]p1.east)--node[lab,below=4pt]{Mốc bắt đầu}([yshift=-0.4cm]d1.west);
+\end{tikzpicture}\endgroup

@@ -1,0 +1,19 @@
+\begingroup\setlength{\parindent}{0pt}
+\begin{tikzpicture}[x=1cm,y=1cm,font=\fontsize{10.5}{13}\linespread{1}\selectfont,label/.style={font=\fontsize{10.5}{13}\linespread{1}\selectfont,align=center,text width=4.7cm,inner sep=2pt}]
+\node[draw=daunavy,fill=lightnavy,rounded corners,align=center,text width=3cm,minimum height=1.1cm,font=\fontsize{10.5}{13}\linespread{1}\selectfont] (p0) at (0.0,0) {Trình duyệt sinh viên};
+\draw[dashed,gray] (0.0,-.6)--(0.0,-15.5);
+\node[draw=daunavy,fill=lightnavy,rounded corners,align=center,text width=3cm,minimum height=1.1cm,font=\fontsize{10.5}{13}\linespread{1}\selectfont] (p1) at (5.7,0) {FastAPI};
+\draw[dashed,gray] (5.7,-.6)--(5.7,-15.5);
+\node[draw=daunavy,fill=lightnavy,rounded corners,align=center,text width=3cm,minimum height=1.1cm,font=\fontsize{10.5}{13}\linespread{1}\selectfont] (p2) at (11.4,0) {SQLite};
+\draw[dashed,gray] (11.4,-.6)--(11.4,-15.5);
+\draw[ra] (0.0,-1.7)--node[label,above=2pt]{Bắt đầu thi\\(X-Exam-Session)}(5.7,-1.7);
+\draw[ra] (5.7,-3.0999999999999996)--node[label,above=2pt]{Tìm / tạo mốc bắt đầu}(11.4,-3.0999999999999996);
+\draw[ra,dashed] (11.4,-4.5)--node[label,above=2pt]{started\_at}(5.7,-4.5);
+\draw[ra,dashed] (5.7,-5.8999999999999995)--node[label,above=2pt]{Thời gian còn lại}(0.0,-5.8999999999999995);
+\draw[ra] (0.0,-7.3)--node[label,above=2pt]{Nộp lựa chọn theo ID câu}(5.7,-7.3);
+\draw[ra] (5.7,-8.7)--node[label,above=2pt]{Đọc phiên, đề, mốc, bài nộp}(11.4,-8.7);
+\draw[ra,dashed] (11.4,-10.099999999999998)--node[label,above=2pt]{Dữ liệu kiểm tra và đáp án}(5.7,-10.099999999999998);
+\draw[ra] (5.7,-11.499999999999998)--node[label,above=2pt]{Chấm; lưu bài và trả lời}(11.4,-11.499999999999998);
+\draw[ra,dashed] (11.4,-12.899999999999999)--node[label,above=2pt]{Commit thành công}(5.7,-12.899999999999999);
+\draw[ra,dashed] (5.7,-14.299999999999999)--node[label,above=2pt]{Điểm và kết quả}(0.0,-14.299999999999999);
+\end{tikzpicture}\endgroup

@@ -1,0 +1,19 @@
+\begingroup\setlength{\parindent}{0pt}
+\begin{tikzpicture}[x=1cm,y=1cm,font=\fontsize{10.5}{13}\linespread{1}\selectfont,ext/.style={draw=daunavy,align=center,text width=2.6cm,minimum height=1.5cm,inner sep=3pt},proc/.style={ext,rounded corners,fill=lightnavy},data/.style={align=center,text width=2.6cm,minimum height=1.8cm,inner sep=3pt},lab/.style={font=\fontsize{10.5}{13}\linespread{1}\selectfont,text width=2.7cm,align=center,inner sep=1pt}]
+\node[ext] (a2) at (0,0.0) {Sinh viên\\Giảng viên};
+\node[proc] (p2) at (6,0.0) {3.0 Thi và\\chấm điểm};
+\node[data] (d2) at (12,0.0) {D2 Đề, câu hỏi\\D3 Ghi danh\\D4 Bài thi};
+\draw[daunavy] (10.6,1.25)--(13.4,1.25);\draw[daunavy] (10.6,-1.25)--(13.4,-1.25);
+\draw[ra] ([yshift=0.4cm]a2.east)--node[lab,above=4pt]{Phiên; lựa chọn;\\truy vấn}([yshift=0.4cm]p2.west);
+\draw[ra] ([yshift=-0.4cm]p2.west)--node[lab,below=4pt]{Câu hỏi, giờ;\\điểm, Excel}([yshift=-0.4cm]a2.east);
+\draw[ra] ([yshift=0.4cm]d2.west)--node[lab,above=4pt]{Đề; phiên;\\mốc, bài nộp}([yshift=0.4cm]p2.east);
+\draw[ra] ([yshift=-0.4cm]p2.east)--node[lab,below=4pt]{Mốc; bài nộp;\\trả lời}([yshift=-0.4cm]d2.west);
+\node[ext] (a3) at (0,-6.8) {Sinh viên\\Giảng viên};
+\node[proc] (p3) at (6,-6.8) {4.0 Ghi nhận và\\tra cứu giám sát};
+\node[data] (d3) at (12,-6.8) {D1 Phiên GV\\D3 Ghi danh\\D5 Sự kiện, ảnh};
+\draw[daunavy] (10.6,-5.55)--(13.4,-5.55);\draw[daunavy] (10.6,-8.05)--(13.4,-8.05);
+\draw[ra] ([yshift=0.4cm]a3.east)--node[lab,above=4pt]{Sự kiện, ảnh;\\bộ lọc}([yshift=0.4cm]p3.west);
+\draw[ra] ([yshift=-0.4cm]p3.west)--node[lab,below=4pt]{Xác nhận;\\nhật ký, ảnh}([yshift=-0.4cm]a3.east);
+\draw[ra] ([yshift=0.4cm]d3.west)--node[lab,above=4pt]{Phiên; sự kiện,\\ảnh đã lưu}([yshift=0.4cm]p3.east);
+\draw[ra] ([yshift=-0.4cm]p3.east)--node[lab,below=4pt]{Sự kiện;\\đường dẫn, ảnh}([yshift=-0.4cm]d3.west);
+\end{tikzpicture}\endgroup

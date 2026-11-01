@@ -74,9 +74,15 @@ Trong luồng nhập đề hiện tại, mỗi câu có $w_i=\operatorname{round
 \end{equation}
 Các chỉ số này được đưa ra để thiết kế thực nghiệm, chưa phải kết quả đo của dự án. Với giám sát theo thời gian, còn cần số cảnh báo nhầm mỗi giờ và độ trễ phát hiện sự kiện, vì hai yếu tố này tác động trực tiếp đến trải nghiệm của sinh viên và khối lượng xem xét của giảng viên.
 
-\section{Web di động, PWA và kênh APK}
-Web di động dùng cùng frontend React qua trình duyệt. Manifest, biểu tượng và chế độ hiển thị standalone hỗ trợ trải nghiệm thêm ứng dụng vào màn hình chính. Trong repo khảo sát không có service worker, vì vậy không xem PWA là cơ chế thi ngoại tuyến. Safari/PWA trên iOS vẫn chịu giới hạn camera, vòng đời trang và quyền do hệ điều hành quản lý.
 
-APK là gói cài Android; nếu đóng gói frontend bằng một lớp WebView như Capacitor, giao diện có thể dùng lại nghiệp vụ web nhưng cần cấu hình địa chỉ API từ xa và quyền camera phù hợp. Đây là mô tả nguyên lý tích hợp; cấu hình native của bản APK đã chạy chưa nằm trong commit công khai được khảo sát.
+\section{Phiên truy cập và ranh giới tin cậy}
+Token phiên là giá trị ngẫu nhiên đại diện cho quyền truy cập được máy chủ cấp. Giảng viên dùng Bearer token sau đăng nhập; sinh viên dùng token yêu cầu để theo dõi việc duyệt và token phiên thi để thực hiện nghiệp vụ. CSDL lưu bản băm token, còn máy khách giữ giá trị gốc để gửi qua header. Các token này không phải JWT.
 
-Cloudflare Tunnel tạo tuyến truy cập từ địa chỉ HTTPS công khai tới dịch vụ cục bộ trên laptop. Trong mô hình của đề tài, tunnel chuyển yêu cầu tới FastAPI cổng 8000. HTTPS cung cấp secure context cho camera khi truy cập từ điện thoại; không thay thế token quản lý hoặc chứng thực sinh viên. Mô hình demo phụ thuộc laptop, tiến trình backend, tiến trình tunnel và kết nối Internet.
+Mã sinh viên trong yêu cầu ghi danh là dữ liệu tự khai. Sau khi duyệt, danh tính của bài nộp và sự kiện được lấy từ lượt ghi danh đã xác thực. Cách này làm giảm việc thay mã trong từng payload, nhưng không loại bỏ nhu cầu xác minh người thực sự đang làm bài. Quyền truy cập dữ liệu và độ tin cậy của tín hiệu camera là hai vấn đề riêng.
+
+\section{Web di động và ứng dụng native}
+Web di động sử dụng cùng frontend React qua trình duyệt. Manifest và biểu tượng hỗ trợ thêm ứng dụng vào màn hình chính. Mã nguồn chưa có service worker phục vụ thi ngoại tuyến, vì vậy trải nghiệm PWA vẫn phụ thuộc kết nối mạng. Safari/PWA trên iOS chịu các giới hạn về quyền camera và vòng đời trang.
+
+Ứng dụng Flutter là một máy khách riêng, có mã Dart và cấu hình nền tảng Android/iOS. Sự tồn tại của cấu hình build không chứng minh tính tương đương với web. Trong phiên bản final, phần phân loại hình ảnh của Flutter còn mô phỏng và luồng API chưa hoàn chỉnh theo cơ chế phiên đã duyệt.
+
+HTTPS cung cấp môi trường phù hợp để trình duyệt truy cập camera khi dùng từ thiết bị ngoài máy phát triển. Mô hình triển khai demo sử dụng Cloudflare Tunnel chuyển yêu cầu tới FastAPI trên laptop; giảng viên và sinh viên truy cập cùng địa chỉ. Tunnel không thay thế xác thực và kiểm soát quyền tại API.

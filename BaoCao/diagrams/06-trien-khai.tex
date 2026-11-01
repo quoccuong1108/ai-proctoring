@@ -1,0 +1,9 @@
+\begin{tikzpicture}[node distance=0.9cm and 0.7cm]
+\node[rb] (pc) {Máy tính\\Web React};
+\node[rb,right=of pc] (phone) {Điện thoại\\Chrome / Safari / PWA};
+\node[rb,below=of pc] (edge) {Cloudflare\\Địa chỉ HTTPS};
+\node[rb,below=of edge] (tunnel) {cloudflared trên laptop\\Chuyển tiếp localhost:8000};
+\node[rb,below=of tunnel] (server) {FastAPI\\API + frontend/dist};
+\node[rb,right=of server] (store) {SQLite + snapshots\\Bản sao lưu DB};
+\draw[ra] (pc)--(edge);\draw[ra] (phone)--(edge);\draw[ra] (edge)--(tunnel);\draw[ra] (tunnel)--(server);\draw[ra] (server)--(store);
+\end{tikzpicture}

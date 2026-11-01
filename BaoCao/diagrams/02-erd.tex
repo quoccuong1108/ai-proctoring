@@ -1,0 +1,22 @@
+\begin{tikzpicture}[x=1cm,y=1cm,every node/.style={rb,text width=3.5cm,font=\footnotesize}]
+\node (t) at (0,0) {teachers\\PK id};
+\node (ts) at (5,0) {teacher\_sessions\\FK teacher\_id};
+\node (e) at (0,-2.2) {exams\\FK teacher\_id};
+\node (en) at (5,-2.2) {exam\_enrollments\\FK exam\_id, decided\_by};
+\node (q) at (-0.7,-4.6) {questions\\FK exam\_id};
+\node (v) at (5,-4.6) {violations\\FK exam\_id, enrollment\_id};
+\node (st) at (-0.7,-7) {exam\_starts\\FK exam\_id};
+\node (s) at (5,-7) {exam\_submissions\\FK exam\_id};
+\node (a) at (5,-9.3) {\src{submission_answers}\\FK submission\_id, question\_id};
+\draw[ra] (ts)--(t);
+\draw[ra] (e)--(t);
+\draw[ra] (en)--(e);
+\draw[ra] (en.north west)--(t.south east);
+\draw[ra] (q)--(e);
+\draw[ra] (v)--(en);
+\draw[ra] (v.west)--(e.south east);
+\draw[ra] (st.west)--++(-0.9,0)|-(e.west);
+\draw[ra] (s.east)--++(1,0)--++(0,5.7)-|(e.east);
+\draw[ra] (a)--(s);
+\draw[ra] (a.west)--(2.4,-9.3)--(2.4,-5.8)--(-0.7,-5.8)--(q.south);
+\end{tikzpicture}

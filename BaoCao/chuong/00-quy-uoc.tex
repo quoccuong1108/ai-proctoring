@@ -1,35 +1,21 @@
-\chapter*{Thông tin nhóm và quy ước đọc}
-\addcontentsline{toc}{chapter}{Thông tin nhóm và quy ước đọc}
-\markboth{Thông tin nhóm và quy ước đọc}{}
-\begin{tabularx}{\textwidth}{@{}lXX@{}}\toprule
-Thành viên & Họ và tên & Mã số sinh viên \\\midrule
-1 & \pending{Bổ sung} & \pending{Bổ sung} \\
-2 & \pending{Bổ sung} & \pending{Bổ sung} \\\bottomrule
-\end{tabularx}
-
-Phân công thực tế của hai thành viên chưa được cung cấp. Nhóm cần bổ sung phần việc, minh chứng commit và đóng góp của từng người; báo cáo không tự suy diễn tác giả của từng mô-đun.
-
-\textbf{Mốc khảo sát:} ngày 01/10/2026; commit \texttt{97a11fe}. Mọi mô tả ``hiện tại'' trong tài liệu đều chỉ phiên bản này. Mẫu trình bày lấy từ liên kết Overleaf do người dùng cung cấp, mang tên \textit{DAU-mau-bao-cao-do-an-TTNT} \cite{template}.
-
-\textbf{Ba mức bằng chứng:} (1) \textit{đã triển khai} là có đường xử lý trong mã nguồn; (2) \textit{đã kiểm thử} là đã chạy ca kiểm thử được mô tả; (3) \textit{đề xuất} là hướng phát triển, chưa được xem là chức năng hiện có. Đọc mã không thay thế kiểm thử tương tác bằng camera thật. Tác giả xác nhận hệ thống hoạt động trên web, APK Android và iOS qua đường dẫn tunnel; đây là xác nhận vận hành của tác giả, chưa phải phép đo độc lập. Repo main được khảo sát có web/PWA nhưng chưa chứa cấu hình Capacitor hoặc dự án Android/iOS native. Kết quả kiểm thử backend được tái chạy và bổ sung riêng trong lần cập nhật này.
-
-{\small\renewcommand{\arraystretch}{1.08}
-\begin{longtable}{@{}L{2.7cm}L{12.3cm}@{}}
-\toprule Từ viết tắt & Ý nghĩa \\\midrule\endfirsthead
+\chapter*{Danh mục từ viết tắt}
+\addcontentsline{toc}{chapter}{Danh mục từ viết tắt}
+\markboth{Danh mục từ viết tắt}{}
+\begin{longtable}{@{}L{2.5cm}L{12.5cm}@{}}
 \toprule Từ viết tắt & Ý nghĩa \\\midrule\endhead
-APK & Gói ứng dụng Android; không đồng nghĩa với biểu tượng PWA.\\
-PWA & Ứng dụng web có thể thêm vào màn hình chính; bản này vẫn cần mạng.\\
-iOS & Hệ điều hành iPhone; kênh triển khai khảo sát là Safari/PWA.\\
 AI & Trí tuệ nhân tạo (Artificial Intelligence).\\
 API & Giao diện lập trình ứng dụng.\\
 CSDL & Cơ sở dữ liệu.\\
-GPU / CPU & Bộ xử lý đồ họa / bộ xử lý trung tâm.\\
-HTTP / HTTPS & Giao thức truyền siêu văn bản / phiên bản có bảo vệ bằng TLS.\\
+CPU / GPU & Bộ xử lý trung tâm / bộ xử lý đồ họa.\\
+ERD & Sơ đồ quan hệ thực thể.\\
+HTTP / HTTPS & Giao thức truyền siêu văn bản / giao thức có bảo vệ bằng TLS.\\
 ORM & Ánh xạ đối tượng với dữ liệu quan hệ.\\
-UTC & Thời gian phối hợp quốc tế; mốc chuẩn dùng khi lưu và trao đổi thời gian.\\
-WAL & Write-Ahead Logging, chế độ ghi nhật ký của SQLite.\\
-WASM & WebAssembly, môi trường thực thi được MediaPipe sử dụng trên web.\\
-TP, FP, FN & Phát hiện đúng, báo nhầm, bỏ sót; dùng trong kế hoạch đánh giá.\\
+PWA & Ứng dụng web hỗ trợ trải nghiệm thêm vào màn hình chính.\\
+REST & Phong cách tổ chức giao diện dịch vụ theo tài nguyên.\\
+UTC & Thời gian phối hợp quốc tế.\\
+WAL & Write-Ahead Logging, chế độ nhật ký của SQLite.\\
+WASM & WebAssembly, môi trường thực thi dùng cho mô hình trên web.\\
+APK & Gói cài đặt ứng dụng Android.\\
+TP / FP / FN & Phát hiện đúng / báo nhầm / bỏ sót trong đánh giá nhận diện.\\
 \bottomrule
 \end{longtable}
-}
