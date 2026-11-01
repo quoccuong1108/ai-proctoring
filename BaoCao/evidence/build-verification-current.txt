@@ -1,8 +1,0 @@
-2026-10-01
-Commit 97a11fea3ed322e3c05eec84a3ff43acea11e51e
-XeLaTeX + BibTeX: 76 pages A4; 12 vector diagrams.
-No overfull boxes, missing characters or undefined references.
-Non-blocking font substitution for bold Latin Modern Mono.
-All pages visually reviewed in contact sheets; detailed checks on new diagrams and device test table.
-17 baseline checks + 11 focused API checks pass. M06 and M11 confirm known limitations.
-No physical camera/APK/iOS/tunnel or load testing performed in this editing session.
